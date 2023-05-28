@@ -92,6 +92,7 @@ func WithDefault() ConfigOption {
 	return func(v *viper.Viper) error {
 		v.SetDefault("source", DefaultSourceDir())
 		v.SetDefault("destination", UserHomeDir)
+		v.SetDefault("editor::command", "vi")
 		v.SetDefault("diff::command", "diff")
 		v.SetDefault("diff::args", []string{"-u"})
 		v.SetDefault("pager::command", "less")

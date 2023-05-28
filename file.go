@@ -51,3 +51,11 @@ func isDir(path string) error {
 	}
 	return nil
 }
+
+// AbsPath returns if path is relative, joins baseDir. if path is absolute, clean the path.
+func AbsPath(path, baseDir string) string {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	return filepath.Join(baseDir, path)
+}

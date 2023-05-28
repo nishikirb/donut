@@ -104,7 +104,36 @@ func (a *App) Diff() error {
 	p := a.Config.Pager
 	cmd := exec.Command(p.Command, p.Args...)
 	cmd.Stdin = bytes.NewBuffer(bs)
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = a.out
+	return cmd.Run()
+}
+
+func (a *App) Edit(file string, current string) error {
+	list, err := NewRelationsBuilder(
+		a.Config.Source,
+		a.Config.Destination,
+		WithExcludes(a.Config.Excludes...),
+	).Build()
+	if err != nil {
+		return err
+	}
+
+	abs := AbsPath(file, current)
+	var path string
+	for _, v := range list {
+		if v.Destination.Path == abs {
+			path = v.Source.Path
+			break
+		}
+	}
+	if path == "" {
+		return fmt.Errorf("file that related to " + file + "  not managed by donut")
+	}
+
+	e := a.Config.Editor
+	args := append(e.Args, path)
+	cmd := exec.Command(e.Command, args...)
+	cmd.Stdout = a.out
 	return cmd.Run()
 }
 

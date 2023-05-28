@@ -5,12 +5,17 @@ import (
 )
 
 type Config struct {
-	Source      string   `mapstructure:"source"`
-	Destination string   `mapstructure:"destination"`
-	Excludes    []string `mapstructure:"excludes"`
-	Editor      string   `mapstructure:"editor"`
-	Diff        string   `mapstructure:"diff"`
-	Pager       string   `mapstructure:"pager"`
+	Source      string          `mapstructure:"source"`
+	Destination string          `mapstructure:"destination"`
+	Excludes    []string        `mapstructure:"excludes"`
+	Editor      CommandArgsPair `mapstructure:"editor"`
+	Diff        CommandArgsPair `mapstructure:"diff"`
+	Pager       CommandArgsPair `mapstructure:"pager"`
+}
+
+type CommandArgsPair struct {
+	Command string   `mapstructure:"command"`
+	Args    []string `mapstructure:"args"`
 }
 
 type ConfigOption func(v *viper.Viper) error
@@ -87,6 +92,10 @@ func WithDefault() ConfigOption {
 	return func(v *viper.Viper) error {
 		v.SetDefault("source", DefaultSourceDir())
 		v.SetDefault("destination", UserHomeDir)
+		v.SetDefault("diff::command", "diff")
+		v.SetDefault("diff::args", []string{"-u"})
+		v.SetDefault("pager::command", "less")
+		v.SetDefault("pager::args", []string{"-R"})
 		return nil
 	}
 }

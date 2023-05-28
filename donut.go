@@ -1,10 +1,12 @@
 package donut
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -14,7 +16,7 @@ import (
 const AppName string = "donut"
 
 type App struct {
-	config *Config
+	Config *Config
 	out    io.Writer
 	err    io.Writer
 }
@@ -36,7 +38,7 @@ func New(opts ...AppOption) (*App, error) {
 }
 
 func (a *App) Echo() error {
-	fmt.Println("Source:", a.config.Source, "Destination:", a.config.Destination)
+	fmt.Println("Source:", a.Config.Source, "Destination:", a.Config.Destination)
 	return nil
 }
 
@@ -65,19 +67,45 @@ func (a *App) Init() error {
 
 func (a *App) List() error {
 	list, err := NewRelationsBuilder(
-		a.config.Source,
-		a.config.Destination,
-		WithExcludes(a.config.Excludes...),
+		a.Config.Source,
+		a.Config.Destination,
+		WithExcludes(a.Config.Excludes...),
 	).Build()
 	if err != nil {
 		return err
 	}
 
 	for _, v := range list {
-		prefixTrimmed := strings.TrimPrefix(strings.TrimPrefix(v.Source.Path, a.config.Source), string(filepath.Separator))
+		prefixTrimmed := strings.TrimPrefix(strings.TrimPrefix(v.Source.Path, a.Config.Source), string(filepath.Separator))
 		fmt.Fprintln(a.out, prefixTrimmed)
 	}
 	return nil
+}
+
+func (a *App) Diff() error {
+	list, err := NewRelationsBuilder(
+		a.Config.Source,
+		a.Config.Destination,
+		WithExcludes(a.Config.Excludes...),
+	).Build()
+	if err != nil {
+		return err
+	}
+
+	d := a.Config.Diff
+	bs := []byte{}
+	for _, v := range list {
+		args := append(d.Args, v.Source.Path, v.Destination.Path)
+		cmd := exec.Command(d.Command, args...)
+		b, _ := cmd.Output()
+		bs = append(bs, b...)
+	}
+
+	p := a.Config.Pager
+	cmd := exec.Command(p.Command, p.Args...)
+	cmd.Stdin = bytes.NewBuffer(bs)
+	cmd.Stdout = os.Stdout
+	return cmd.Run()
 }
 
 func WithConfig(v *viper.Viper) AppOption {
@@ -89,7 +117,7 @@ func WithConfig(v *viper.Viper) AppOption {
 		if err := validateConfig(&cfg); err != nil {
 			return err
 		}
-		app.config = &cfg
+		app.Config = &cfg
 		return nil
 	}
 }

@@ -14,22 +14,30 @@ type ConfigOption func(v *viper.Viper) error
 
 var viperInstance = viper.New()
 
-func InitConfig(cfgPath string) error {
+func InitConfig(configFile string) error {
 	var opts []ConfigOption
-	if cfgPath != "" {
-		opts = append(opts, WithDefault(), WithFile(cfgPath))
+	if configFile != "" {
+		opts = append(opts, WithDefault(), WithFile(configFile))
 	} else {
 		opts = append(opts, WithDefault(), WithNameAndPath(AppName, DefaultConfigDirs()...))
 	}
 
-	viperInstance = viper.NewWithOptions(viper.KeyDelimiter("::"))
+	var err error
+	viperInstance, err = NewConfig(opts...)
+
+	return err
+}
+
+func NewConfig(opts ...ConfigOption) (*viper.Viper, error) {
+	v := viper.NewWithOptions(viper.KeyDelimiter("::"))
+
 	for _, opt := range opts {
-		if err := opt(viperInstance); err != nil {
-			return err
+		if err := opt(v); err != nil {
+			return nil, err
 		}
 	}
 
-	return nil
+	return v, nil
 }
 
 func GetConfig() *viper.Viper {

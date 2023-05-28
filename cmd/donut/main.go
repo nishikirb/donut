@@ -15,7 +15,7 @@ func main() {
 }
 
 func NewRootCmd() *cobra.Command {
-	rootCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "donut",
 		Version: donut.GetVersion(),
 		Short:   "A brief description of your application",
@@ -26,32 +26,25 @@ func NewRootCmd() *cobra.Command {
 	This application is a tool to generate the needed files
 	to quickly create a Cobra application.`,
 		SilenceUsage: true,
-
-		// Uncomment the following line if your bare application
-		// has an action associated with it:
-		// Run: func(cmd *cobra.Command, args []string) { },
 	}
 
-	rootCmd.PersistentFlags().StringP("config", "c", "", "location of config file")
+	cmd.PersistentFlags().StringP("file", "f", "", "location of config file")
 
-	rootCmd.AddCommand(NewEchoCmd())
+	cmd.AddCommand(
+		NewEchoCmd(),
+		NewInitCmd(),
+	)
 
-	return rootCmd
+	return cmd
 }
 
 func NewEchoCmd() *cobra.Command {
-	echoCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "echo",
 		Short: "A brief description of your command",
-		Long: `A longer description that spans multiple lines and likely contains examples
-	and usage of using your command. For example:
-	
-	Cobra is a CLI library for Go that empowers applications.
-	This application is a tool to generate the needed files
-	to quickly create a Cobra application.`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			cfgPath, _ := cmd.Flags().GetString("config")
-			return donut.InitConfig(cfgPath)
+			configFile, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(configFile)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
@@ -62,5 +55,18 @@ func NewEchoCmd() *cobra.Command {
 		},
 	}
 
-	return echoCmd
+	return cmd
+}
+
+func NewInitCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "A brief description of your command",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			d, _ := donut.New()
+			return d.Init()
+		},
+	}
+
+	return cmd
 }

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 )
 
+const fileType = "toml"
+
 var UserHomeDir string
 
 func init() {
@@ -13,6 +15,10 @@ func init() {
 	if UserHomeDir, err = os.UserHomeDir(); err != nil {
 		panic(err)
 	}
+}
+
+func DefaultConfigFile() string {
+	return filepath.Join(UserHomeDir, ".config", AppName, AppName+"."+fileType)
 }
 
 func DefaultConfigDirs() []string {

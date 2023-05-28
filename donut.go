@@ -1,9 +1,11 @@
 package donut
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/viper"
 )
@@ -30,6 +32,34 @@ func New(opts ...AppOption) (*App, error) {
 	}
 
 	return app, nil
+}
+
+func (a *App) Echo() error {
+	fmt.Println("Source:", a.config.Source, "Destination:", a.config.Destination)
+	return nil
+}
+
+func (a *App) Init() error {
+	// check config file exists in default path
+	// if exists, no need to init
+	_, err := NewConfig(WithDefault(), WithNameAndPath(AppName, DefaultConfigDirs()...))
+	if err == nil {
+		return errors.New("config file already exists. no need to init")
+	} else if !errors.As(err, &viper.ConfigFileNotFoundError{}) {
+		return fmt.Errorf("config file already exists, but error: %w", err)
+	}
+
+	configFile := DefaultConfigFile()
+	if err := os.MkdirAll(filepath.Dir(configFile), os.ModePerm); err != nil {
+		return err
+	}
+	v, _ := NewConfig(WithDefault())
+	if err := v.SafeWriteConfigAs(configFile); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(a.out, "Configuration file created in", configFile)
+	return nil
 }
 
 func WithConfig(v *viper.Viper) AppOption {
@@ -66,10 +96,5 @@ func validateConfig(cfg *Config) error {
 			return err
 		}
 	}
-	return nil
-}
-
-func (a *App) Echo() error {
-	fmt.Println("Source:", a.config.Source, "Destination:", a.config.Destination)
 	return nil
 }

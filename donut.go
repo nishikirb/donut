@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -59,6 +60,23 @@ func (a *App) Init() error {
 	}
 
 	fmt.Fprintln(a.out, "Configuration file created in", configFile)
+	return nil
+}
+
+func (a *App) List() error {
+	list, err := NewRelationsBuilder(
+		a.config.Source,
+		a.config.Destination,
+		WithExcludes(a.config.Excludes...),
+	).Build()
+	if err != nil {
+		return err
+	}
+
+	for _, v := range list {
+		prefixTrimmed := strings.TrimPrefix(strings.TrimPrefix(v.Source.Path, a.config.Source), string(filepath.Separator))
+		fmt.Fprintln(a.out, prefixTrimmed)
+	}
 	return nil
 }
 

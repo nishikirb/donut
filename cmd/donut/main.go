@@ -33,6 +33,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(
 		NewEchoCmd(),
 		NewInitCmd(),
+		NewListCmd(),
 	)
 
 	return cmd
@@ -65,6 +66,26 @@ func NewInitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			d, _ := donut.New()
 			return d.Init()
+		},
+	}
+
+	return cmd
+}
+
+func NewListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "A brief description of your command",
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			configFile, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(configFile)
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			if err != nil {
+				return err
+			}
+			return d.List()
 		},
 	}
 

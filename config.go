@@ -8,6 +8,9 @@ type Config struct {
 	Source      string   `mapstructure:"source"`
 	Destination string   `mapstructure:"destination"`
 	Excludes    []string `mapstructure:"excludes"`
+	Editor      string   `mapstructure:"editor"`
+	Diff        string   `mapstructure:"diff"`
+	Pager       string   `mapstructure:"pager"`
 }
 
 type ConfigOption func(v *viper.Viper) error

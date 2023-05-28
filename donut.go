@@ -137,6 +137,15 @@ func (a *App) Edit(file string, current string) error {
 	return cmd.Run()
 }
 
+func (a *App) EditConfig() error {
+	v := GetConfig()
+	e := a.Config.Editor
+	args := append(e.Args, v.ConfigFileUsed())
+	cmd := exec.Command(e.Command, args...)
+	cmd.Stdout = a.out
+	return cmd.Run()
+}
+
 func WithConfig(v *viper.Viper) AppOption {
 	return func(app *App) error {
 		var cfg Config

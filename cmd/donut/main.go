@@ -36,6 +36,7 @@ func NewRootCmd() *cobra.Command {
 		NewListCmd(),
 		NewDiffCmd(),
 		NewEditCmd(),
+		NewConfigCmd(),
 	)
 
 	return cmd
@@ -133,6 +134,26 @@ func NewEditCmd() *cobra.Command {
 				return err
 			}
 			return d.Edit(args[0], current)
+		},
+	}
+
+	return cmd
+}
+
+func NewConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "A brief description of your command",
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			configFile, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(configFile)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			if err != nil {
+				return err
+			}
+			return d.EditConfig()
 		},
 	}
 

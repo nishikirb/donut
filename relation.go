@@ -119,3 +119,18 @@ func NewFile(path string) (*File, error) {
 		FileInfo: f,
 	}, nil
 }
+
+func (f *File) IsSymLink() bool {
+	return f.FileInfo.Mode()&os.ModeSymlink != 0
+}
+
+func (f *File) IsSame(path string) (bool, error) {
+	if !f.IsSymLink() {
+		return f.Path == path, nil
+	}
+	l, err := os.Readlink(f.Path)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", f.Path, err)
+	}
+	return l == path, nil
+}

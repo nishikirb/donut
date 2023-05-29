@@ -146,6 +146,41 @@ func (a *App) EditConfig() error {
 	return cmd.Run()
 }
 
+func (a *App) Apply() error {
+	list, err := NewRelationsBuilder(
+		a.Config.Source,
+		a.Config.Destination,
+		WithExcludes(a.Config.Excludes...),
+	).Build()
+	if err != nil {
+		return err
+	}
+
+	for _, v := range list {
+		// If the directory does not exist, create it
+		// os.MkdirAll will return nil if directory already exists
+		dirPath := filepath.Dir(v.Destination.Path)
+		if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
+			return err
+		}
+
+		if !v.Destination.NotExist {
+			// os.Remove will unlink the file if the file is a symbolic link
+			if err := os.Remove(v.Destination.Path); err != nil {
+				return err
+			}
+		}
+
+		if err := copyFile(v.Source.Path, v.Destination.Path); err != nil {
+			return err
+		}
+
+		fmt.Fprintf(a.out, "File copied. %s from %s\n", v.Destination.Path, v.Source.Path)
+	}
+
+	return nil
+}
+
 func WithConfig(v *viper.Viper) AppOption {
 	return func(app *App) error {
 		var cfg Config

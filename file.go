@@ -2,6 +2,7 @@ package donut
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -58,4 +59,20 @@ func AbsPath(path, baseDir string) string {
 		return filepath.Clean(path)
 	}
 	return filepath.Join(baseDir, path)
+}
+
+func copyFile(sourcePath, destinationPath string) error {
+	sourceFile, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+	destinationFile, err := os.Create(destinationPath)
+	if err != nil {
+		return err
+	}
+	defer destinationFile.Close()
+
+	_, err = io.Copy(destinationFile, sourceFile)
+	return err
 }

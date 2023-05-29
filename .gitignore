@@ -22,3 +22,5 @@ go.work
 
 # Binaries
 bin/
+
+dist/

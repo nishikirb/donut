@@ -9,8 +9,11 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+    main: ./cmd/donut
     goos:
       - darwin
+    goarch:
+      - arm64
     ldflags:
       - -w -s -X github.com/gleamsoda/donut.version={{.Version}}
 

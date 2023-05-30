@@ -16,22 +16,15 @@ func main() {
 
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "donut",
-		Version: donut.GetVersion(),
-		Short:   "A brief description of your application",
-		Long: `A longer description that spans multiple lines and likely contains
-	examples and usage of using your application. For example:
-	
-	Cobra is a CLI library for Go that empowers applications.
-	This application is a tool to generate the needed files
-	to quickly create a Cobra application.`,
+		Use:          "donut",
+		Version:      donut.GetVersion(),
+		Short:        "Tiny dotfiles management tool written in Go.",
 		SilenceUsage: true,
 	}
 
-	cmd.PersistentFlags().StringP("file", "f", "", "location of config file")
+	cmd.PersistentFlags().StringP("file", "f", "", "Specify the path to the configuration file")
 
 	cmd.AddCommand(
-		NewEchoCmd(),
 		NewInitCmd(),
 		NewListCmd(),
 		NewDiffCmd(),
@@ -43,30 +36,11 @@ func NewRootCmd() *cobra.Command {
 	return cmd
 }
 
-func NewEchoCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "echo",
-		Short: "A brief description of your command",
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			configFile, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(configFile)
-		},
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
-			if err != nil {
-				return err
-			}
-			return d.Echo()
-		},
-	}
-
-	return cmd
-}
-
 func NewInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "A brief description of your command",
+		Short: "Create a default configuration file",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			d, _ := donut.New()
 			return d.Init()
@@ -79,10 +53,11 @@ func NewInitCmd() *cobra.Command {
 func NewListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "A brief description of your command",
+		Short: "Display a list of source files",
+		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			configFile, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(configFile)
+			f, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
@@ -99,10 +74,11 @@ func NewListCmd() *cobra.Command {
 func NewDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff",
-		Short: "A brief description of your command",
+		Short: "Display a list of differences between source and destination files",
+		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			configFile, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(configFile)
+			f, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
@@ -119,11 +95,11 @@ func NewDiffCmd() *cobra.Command {
 func NewEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "edit",
-		Short: "A brief description of your command",
+		Short: "Edit the source file",
 		Args:  cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			configFile, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(configFile)
+			f, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			current, err := os.Getwd()
@@ -144,10 +120,11 @@ func NewEditCmd() *cobra.Command {
 func NewConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "A brief description of your command",
+		Short: "Edit the configuration file",
+		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			configFile, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(configFile)
+			f, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
@@ -164,10 +141,11 @@ func NewConfigCmd() *cobra.Command {
 func NewApplyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "A brief description of your command",
+		Short: "Apply the content of the source file to the destination file",
+		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			configFile, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(configFile)
+			f, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			d, err := donut.New(donut.WithConfig(donut.GetConfig()))

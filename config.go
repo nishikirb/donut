@@ -1,37 +1,42 @@
 package donut
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/viper"
 )
 
+const AppName string = "donut"
+const defaultConfigExt = "toml"
+
 type Config struct {
-	Source      string          `mapstructure:"source"`
-	Destination string          `mapstructure:"destination"`
-	Excludes    []string        `mapstructure:"excludes"`
-	Editor      CommandArgsPair `mapstructure:"editor"`
-	Diff        CommandArgsPair `mapstructure:"diff"`
-	Pager       CommandArgsPair `mapstructure:"pager"`
+	Source      string   `mapstructure:"source"`
+	Destination string   `mapstructure:"destination"`
+	Excludes    []string `mapstructure:"excludes"`
+	Editor      Command  `mapstructure:"editor"`
+	Diff        Command  `mapstructure:"diff"`
+	Pager       Command  `mapstructure:"pager"`
 }
 
-type CommandArgsPair struct {
-	Command string   `mapstructure:"command"`
-	Args    []string `mapstructure:"args"`
+type Command struct {
+	Name string   `mapstructure:"command"`
+	Args []string `mapstructure:"args"`
 }
 
 type ConfigOption func(v *viper.Viper) error
 
-var viperInstance = viper.New()
+var configInstance = viper.New()
 
-func InitConfig(configFile string) error {
+func InitConfig(path string) error {
 	var opts []ConfigOption
-	if configFile != "" {
-		opts = append(opts, WithDefault(), WithFile(configFile))
+	if path != "" {
+		opts = append(opts, WithDefault(), WithFile(path))
 	} else {
 		opts = append(opts, WithDefault(), WithNameAndPath(AppName, DefaultConfigDirs()...))
 	}
 
 	var err error
-	viperInstance, err = NewConfig(opts...)
+	configInstance, err = NewConfig(opts...)
 
 	return err
 }
@@ -48,17 +53,9 @@ func NewConfig(opts ...ConfigOption) (*viper.Viper, error) {
 	return v, nil
 }
 
-func GetConfig() *viper.Viper {
-	return viperInstance
-}
-
-func WriteConfig(filename string) error {
-	return viperInstance.WriteConfigAs(filename)
-}
-
-func WithFile(file string) ConfigOption {
+func WithFile(path string) ConfigOption {
 	return func(v *viper.Viper) error {
-		v.SetConfigFile(file)
+		v.SetConfigFile(path)
 		if err := v.ReadInConfig(); err != nil {
 			return err
 		}
@@ -90,13 +87,35 @@ func WithData(data map[string]interface{}) ConfigOption {
 
 func WithDefault() ConfigOption {
 	return func(v *viper.Viper) error {
-		v.SetDefault("source", DefaultSourceDir())
-		v.SetDefault("destination", UserHomeDir)
-		v.SetDefault("editor::command", "vi")
+		v.SetDefault("source", defaultSourceDir())
+		v.SetDefault("destination", homedir)
+		v.SetDefault("editor::command", "vim")
+		v.SetDefault("editor::args", []string{})
 		v.SetDefault("diff::command", "diff")
 		v.SetDefault("diff::args", []string{"-u"})
 		v.SetDefault("pager::command", "less")
 		v.SetDefault("pager::args", []string{"-R"})
 		return nil
 	}
+}
+
+func GetConfig() *viper.Viper {
+	return configInstance
+}
+
+func DefaultConfigFile() string {
+	return filepath.Join(homedir, ".config", AppName, AppName+"."+defaultConfigExt)
+}
+
+func DefaultConfigDirs() []string {
+	return []string{
+		"$XDG_CONFIG_HOME",
+		filepath.Join("$XDG_CONFIG_HOME", AppName),
+		filepath.Join(homedir, ".config"),
+		filepath.Join(homedir, ".config", AppName),
+	}
+}
+
+func defaultSourceDir() string {
+	return filepath.Join(homedir, ".local", "share", AppName)
 }

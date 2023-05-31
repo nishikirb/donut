@@ -81,7 +81,7 @@ func (a *App) Diff() error {
 
 	var diff []byte
 	for _, v := range mps {
-		args := append(a.Config.Diff.Args, v.Source.Path, v.Destination.Path)
+		args := append(a.Config.Diff.Args, v.Destination.Path, v.Source.Path)
 		cmd := exec.Command(a.Config.Diff.Name, args...)
 		b, _ := cmd.Output()
 		diff = append(diff, b...)
@@ -136,6 +136,13 @@ func (a *App) Apply() error {
 	}
 
 	for _, v := range mps {
+		diffArgs := append(a.Config.Diff.Args, v.Destination.Path, v.Source.Path)
+		diffCmd := exec.Command(a.Config.Diff.Name, diffArgs...)
+		bf, _ := diffCmd.Output()
+		if diffCmd.ProcessState.ExitCode() != 1 {
+			continue
+		}
+
 		// If the directory does not exist, create it
 		// os.MkdirAll will return nil if directory already exists
 		dir := filepath.Dir(v.Destination.Path)
@@ -143,35 +150,16 @@ func (a *App) Apply() error {
 			return err
 		}
 
-		if !v.Destination.NotExist {
-			// os.Remove will unlink the file if the file is a symbolic link
-			if err := os.Remove(v.Destination.Path); err != nil {
-				return err
-			}
+		patchArgs := append(a.Config.Patch.Args, v.Destination.Path)
+		patchCmd := exec.Command(a.Config.Patch.Name, patchArgs...)
+		patchCmd.Stdin = bytes.NewBuffer(bf)
+		b, err := patchCmd.Output()
+		if err != nil {
+			return errors.New(string(b))
 		}
 
-		if err := cp(v.Source.Path, v.Destination.Path); err != nil {
-			return err
-		}
-
-		fmt.Fprintf(a.out, "File copied. %s from %s\n", v.Destination.Path, v.Source.Path)
+		fmt.Fprintf(a.out, "Applied a patch to the destination file. %s from %s\n", v.Destination.Path, v.Source.Path)
 	}
 
 	return nil
-}
-
-func cp(src, dst string) error {
-	sf, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer sf.Close()
-	df, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer df.Close()
-
-	_, err = io.Copy(df, sf)
-	return err
 }

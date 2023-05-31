@@ -16,6 +16,7 @@ type Config struct {
 	Editor      Command  `mapstructure:"editor"`
 	Diff        Command  `mapstructure:"diff"`
 	Pager       Command  `mapstructure:"pager"`
+	Patch       Command  `mapstructure:"patch"`
 }
 
 type Command struct {
@@ -92,9 +93,11 @@ func WithDefault() ConfigOption {
 		v.SetDefault("editor::command", "vim")
 		v.SetDefault("editor::args", []string{})
 		v.SetDefault("diff::command", "diff")
-		v.SetDefault("diff::args", []string{"-u"})
+		v.SetDefault("diff::args", []string{"-upN"})
 		v.SetDefault("pager::command", "less")
 		v.SetDefault("pager::args", []string{"-R"})
+		v.SetDefault("patch::command", "patch")
+		v.SetDefault("patch::args", []string{"-u", "--batch"})
 		return nil
 	}
 }

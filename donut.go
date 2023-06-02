@@ -8,13 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/viper"
 )
 
 type App struct {
 	Config *Config
+	Store  *Store
 	out    io.Writer
 	err    io.Writer
 }
@@ -57,22 +57,21 @@ func (a *App) Init() error {
 }
 
 func (a *App) List() error {
-	mps, err := NewMappingsBuilder(
+	mapper, err := NewPathMapperBuilder(
 		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
 	).Build()
 	if err != nil {
 		return err
 	}
 
-	for _, v := range mps {
-		prefixTrimmed := strings.TrimPrefix(strings.TrimPrefix(v.Source.Path, a.Config.Source), string(filepath.Separator))
-		fmt.Fprintln(a.out, prefixTrimmed)
+	for _, relSourcePath := range mapper.RelSourcePaths() {
+		fmt.Fprintln(a.out, relSourcePath)
 	}
 	return nil
 }
 
 func (a *App) Diff() error {
-	mps, err := NewMappingsBuilder(
+	mapper, err := NewPathMapperBuilder(
 		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
 	).Build()
 	if err != nil {
@@ -80,86 +79,97 @@ func (a *App) Diff() error {
 	}
 
 	var diff []byte
-	for _, v := range mps {
-		args := append(a.Config.Diff.Args, v.Destination.Path, v.Source.Path)
-		cmd := exec.Command(a.Config.Diff.Name, args...)
-		b, _ := cmd.Output()
-		diff = append(diff, b...)
-	}
-
-	cmd := exec.Command(a.Config.Pager.Name, a.Config.Pager.Args...)
-	cmd.Stdin = bytes.NewBuffer(diff)
-	cmd.Stdout = a.out
-	return cmd.Run()
-}
-
-func (a *App) Edit(file string, current string) error {
-	mps, err := NewMappingsBuilder(
-		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
-	).Build()
-	if err != nil {
-		return err
-	}
-
-	abs := AbsPath(file, current)
-	var path string
-	for _, v := range mps {
-		if v.Destination.Path == abs {
-			path = v.Source.Path
-			break
+	diffConfig := a.Config.Diff
+	for _, pm := range mapper.Mapping {
+		ss, err := fileEntriesMap.GetSum(pm.Source)
+		if err != nil {
+			return err
 		}
-	}
-	if path == "" {
-		return fmt.Errorf("file that related to " + file + "  not managed by donut")
+		ds, err := fileEntriesMap.GetSum(pm.Destination)
+		if err != nil {
+			return err
+		}
+		if bytes.Equal(ss, ds) {
+			continue
+		}
+
+		args := append(diffConfig.Args, pm.Destination, pm.Source)
+		cmd := exec.Command(diffConfig.Name, args...)
+		out, _ := cmd.Output()
+		diff = append(diff, out...)
 	}
 
-	args := append(a.Config.Editor.Args, path)
-	cmd := exec.Command(a.Config.Editor.Name, args...)
+	pagerConfig := a.Config.Pager
+	cmd := exec.Command(pagerConfig.Name, pagerConfig.Args...)
+	cmd.Stdin = bytes.NewBuffer(diff)
 	cmd.Stdout = a.out
 	return cmd.Run()
 }
 
 func (a *App) EditConfig() error {
 	v := GetConfig()
-	args := append(a.Config.Editor.Args, v.ConfigFileUsed())
+	editorConfig := a.Config.Editor
+	args := append(editorConfig.Args, v.ConfigFileUsed())
 	cmd := exec.Command(a.Config.Editor.Name, args...)
 	cmd.Stdout = a.out
 	return cmd.Run()
 }
 
 func (a *App) Apply() error {
-	mps, err := NewMappingsBuilder(
+	mapper, err := NewPathMapperBuilder(
 		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
 	).Build()
 	if err != nil {
 		return err
 	}
 
-	for _, v := range mps {
-		diffArgs := append(a.Config.Diff.Args, v.Destination.Path, v.Source.Path)
-		diffCmd := exec.Command(a.Config.Diff.Name, diffArgs...)
-		bf, _ := diffCmd.Output()
-		if diffCmd.ProcessState.ExitCode() != 1 {
+	for _, pm := range mapper.Mapping {
+		ss, err := fileEntriesMap.GetSum(pm.Source)
+		if err != nil {
+			return err
+		}
+		ds, err := fileEntriesMap.GetSum(pm.Destination)
+		if err != nil {
+			return err
+		}
+		if bytes.Equal(ss, ds) {
 			continue
 		}
 
 		// If the directory does not exist, create it
 		// os.MkdirAll will return nil if directory already exists
-		dir := filepath.Dir(v.Destination.Path)
+		dir := filepath.Dir(pm.Destination)
 		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 			return err
 		}
-
-		patchArgs := append(a.Config.Patch.Args, v.Destination.Path)
-		patchCmd := exec.Command(a.Config.Patch.Name, patchArgs...)
-		patchCmd.Stdin = bytes.NewBuffer(bf)
-		b, err := patchCmd.Output()
-		if err != nil {
-			return errors.New(string(b))
+		if err := a.Overwrite(pm.Source, pm.Destination); err != nil {
+			return err
 		}
 
-		fmt.Fprintf(a.out, "Applied a patch to the destination file. %s from %s\n", v.Destination.Path, v.Source.Path)
+		fmt.Fprintf(a.out, "Applied a patch to the destination file. %s from %s\n", pm.Destination, pm.Source)
 	}
 
+	return nil
+}
+
+// Overwrite replaces the contents of dst with the contents of src.
+func (a *App) Overwrite(src, dst string) error {
+	f, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	e, err := fileEntriesMap.Get(src)
+	if err != nil {
+		return err
+	}
+	c, err := e.GetContent()
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(c); err != nil {
+		return err
+	}
 	return nil
 }

@@ -14,6 +14,19 @@ func main() {
 	}
 }
 
+func init() {
+	cobra.OnInitialize(func() {
+		if err := donut.InitStore(); err != nil {
+			panic(err)
+		}
+	})
+	cobra.OnFinalize(func() {
+		if err := donut.GetStore().Close(); err != nil {
+			panic(err)
+		}
+	})
+}
+
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "donut",
@@ -28,7 +41,6 @@ func NewRootCmd() *cobra.Command {
 		NewInitCmd(),
 		NewListCmd(),
 		NewDiffCmd(),
-		NewEditCmd(),
 		NewConfigCmd(),
 		NewApplyCmd(),
 	)
@@ -81,36 +93,11 @@ func NewDiffCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithStore(donut.GetStore()))
 			if err != nil {
 				return err
 			}
 			return d.Diff()
-		},
-	}
-
-	return cmd
-}
-
-func NewEditCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "edit",
-		Short: "Edit the source file",
-		Args:  cobra.ExactArgs(1),
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			f, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(f)
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			current, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
-			if err != nil {
-				return err
-			}
-			return d.Edit(args[0], current)
 		},
 	}
 
@@ -148,7 +135,7 @@ func NewApplyCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithStore(donut.GetStore()))
 			if err != nil {
 				return err
 			}

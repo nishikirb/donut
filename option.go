@@ -22,6 +22,13 @@ func WithConfig(v *viper.Viper) AppOption {
 	}
 }
 
+func WithStore(s *Store) AppOption {
+	return func(a *App) error {
+		a.Store = s
+		return nil
+	}
+}
+
 func WithOut(r io.Writer) AppOption {
 	return func(a *App) error {
 		a.out = r

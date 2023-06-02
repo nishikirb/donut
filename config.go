@@ -2,6 +2,7 @@ package donut
 
 import (
 	"path/filepath"
+	"sync"
 
 	"github.com/spf13/viper"
 )
@@ -16,7 +17,6 @@ type Config struct {
 	Editor      Command  `mapstructure:"editor"`
 	Diff        Command  `mapstructure:"diff"`
 	Pager       Command  `mapstructure:"pager"`
-	Patch       Command  `mapstructure:"patch"`
 }
 
 type Command struct {
@@ -26,18 +26,23 @@ type Command struct {
 
 type ConfigOption func(v *viper.Viper) error
 
-var configInstance = viper.New()
+var (
+	config     = viper.New()
+	initConfig sync.Once
+)
 
 func InitConfig(path string) error {
-	var opts []ConfigOption
-	if path != "" {
-		opts = append(opts, WithDefault(), WithFile(path))
-	} else {
-		opts = append(opts, WithDefault(), WithNameAndPath(AppName, DefaultConfigDirs()...))
-	}
-
 	var err error
-	configInstance, err = NewConfig(opts...)
+	initConfig.Do(func() {
+		var opts []ConfigOption
+		if path != "" {
+			opts = append(opts, WithDefault(), WithFile(path))
+		} else {
+			opts = append(opts, WithDefault(), WithNameAndPath(AppName, DefaultConfigDirs()...))
+		}
+
+		config, err = NewConfig(opts...)
+	})
 
 	return err
 }
@@ -52,6 +57,10 @@ func NewConfig(opts ...ConfigOption) (*viper.Viper, error) {
 	}
 
 	return v, nil
+}
+
+func GetConfig() *viper.Viper {
+	return config
 }
 
 func WithFile(path string) ConfigOption {
@@ -96,14 +105,8 @@ func WithDefault() ConfigOption {
 		v.SetDefault("diff::args", []string{"-upN"})
 		v.SetDefault("pager::command", "less")
 		v.SetDefault("pager::args", []string{"-R"})
-		v.SetDefault("patch::command", "patch")
-		v.SetDefault("patch::args", []string{"-u", "--batch"})
 		return nil
 	}
-}
-
-func GetConfig() *viper.Viper {
-	return configInstance
 }
 
 func DefaultConfigFile() string {
@@ -121,4 +124,8 @@ func DefaultConfigDirs() []string {
 
 func defaultSourceDir() string {
 	return filepath.Join(homedir, ".local", "share", AppName)
+}
+
+func defaultStateDir() string {
+	return filepath.Join(homedir, ".local", "state", AppName)
 }

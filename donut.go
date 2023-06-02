@@ -83,11 +83,11 @@ func (a *App) Diff() error {
 	var diff []byte
 	diffConfig := a.Config.Diff
 	for _, pm := range mapper.Mapping {
-		ss, err := fileEntriesMap.GetSum(pm.Source)
+		ss, err := fileSystem.GetSum(pm.Source)
 		if err != nil {
 			return err
 		}
-		ds, err := fileEntriesMap.GetSum(pm.Destination)
+		ds, err := fileSystem.GetSum(pm.Destination)
 		if err != nil {
 			return err
 		}
@@ -118,11 +118,11 @@ func (a *App) Merge() error {
 
 	mergeConfig := a.Config.Merge
 	for _, pm := range mapper.Mapping {
-		ss, err := fileEntriesMap.GetSum(pm.Source)
+		ss, err := fileSystem.GetSum(pm.Source)
 		if err != nil {
 			return err
 		}
-		ds, err := fileEntriesMap.GetSum(pm.Destination)
+		ds, err := fileSystem.GetSum(pm.Destination)
 		if err != nil {
 			return err
 		}
@@ -187,11 +187,11 @@ func (a *App) Apply() error {
 	}
 
 	for _, pm := range mapper.Mapping {
-		ss, err := fileEntriesMap.GetSum(pm.Source)
+		ss, err := fileSystem.GetSum(pm.Source)
 		if err != nil {
 			return err
 		}
-		ds, err := fileEntriesMap.GetSum(pm.Destination)
+		ds, err := fileSystem.GetSum(pm.Destination)
 		if err != nil {
 			return err
 		}
@@ -223,7 +223,7 @@ func (a *App) Overwrite(src, dst string) error {
 	}
 	defer f.Close()
 
-	e, err := fileEntriesMap.Get(src)
+	e, err := fileSystem.Get(src)
 	if err != nil {
 		return err
 	}

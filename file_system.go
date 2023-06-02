@@ -8,7 +8,7 @@ type FileSystem struct {
 	FileEntryMap sync.Map
 }
 
-var fileEntriesMap = &FileSystem{}
+var fileSystem = &FileSystem{}
 
 func (m *FileSystem) Get(path string) (*FileEntry, error) {
 	if v, ok := m.FileEntryMap.Load(path); ok {

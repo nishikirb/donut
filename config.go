@@ -17,6 +17,7 @@ type Config struct {
 	Editor      Command  `mapstructure:"editor"`
 	Diff        Command  `mapstructure:"diff"`
 	Pager       Command  `mapstructure:"pager"`
+	Merge       Command  `mapstructure:"merge"`
 }
 
 type Command struct {
@@ -105,6 +106,8 @@ func WithDefault() ConfigOption {
 		v.SetDefault("diff::args", []string{"-upN"})
 		v.SetDefault("pager::command", "less")
 		v.SetDefault("pager::args", []string{"-R"})
+		v.SetDefault("merge::command", "vimdiff")
+		v.SetDefault("merge::args", []string{})
 		return nil
 	}
 }

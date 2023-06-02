@@ -15,12 +15,14 @@ import (
 type App struct {
 	Config *Config
 	Store  *Store
+	in     io.Reader
 	out    io.Writer
 	err    io.Writer
 }
 
 func New(opts ...AppOption) (*App, error) {
 	app := &App{
+		in:  os.Stdin,
 		out: os.Stdout,
 		err: os.Stderr,
 	}
@@ -106,6 +108,40 @@ func (a *App) Diff() error {
 	return cmd.Run()
 }
 
+func (a *App) Merge() error {
+	mapper, err := NewPathMapperBuilder(
+		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
+	).Build()
+	if err != nil {
+		return err
+	}
+
+	mergeConfig := a.Config.Merge
+	for _, pm := range mapper.Mapping {
+		ss, err := fileEntriesMap.GetSum(pm.Source)
+		if err != nil {
+			return err
+		}
+		ds, err := fileEntriesMap.GetSum(pm.Destination)
+		if err != nil {
+			return err
+		}
+		if bytes.Equal(ss, ds) {
+			continue
+		}
+
+		args := append(mergeConfig.Args, pm.Destination, pm.Source)
+		cmd := exec.Command(mergeConfig.Name, args...)
+		cmd.Stdin = a.in
+		cmd.Stdout = a.out
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (a *App) Where(dir string) error {
 	switch dir {
 	case "source":
@@ -137,6 +173,7 @@ func (a *App) ConfigEdit() error {
 	editorConfig := a.Config.Editor
 	args := append(editorConfig.Args, v.ConfigFileUsed())
 	cmd := exec.Command(a.Config.Editor.Name, args...)
+	cmd.Stdin = a.in
 	cmd.Stdout = a.out
 	return cmd.Run()
 }

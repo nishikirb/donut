@@ -29,6 +29,13 @@ func WithStore(s *Store) AppOption {
 	}
 }
 
+func WithIn(r io.Reader) AppOption {
+	return func(a *App) error {
+		a.in = r
+		return nil
+	}
+}
+
 func WithOut(r io.Writer) AppOption {
 	return func(a *App) error {
 		a.out = r

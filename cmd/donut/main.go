@@ -41,6 +41,7 @@ func NewRootCmd() *cobra.Command {
 		NewInitCmd(),
 		NewListCmd(),
 		NewDiffCmd(),
+		NewMergeCmd(),
 		NewWhereCmd(),
 		NewConfigCmd(),
 		NewApplyCmd(),
@@ -100,6 +101,27 @@ func NewDiffCmd() *cobra.Command {
 			}
 			return d.Diff()
 		},
+	}
+
+	return cmd
+}
+
+func NewMergeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "merge",
+		Short: "Merge the source file into the destination file",
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			f, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(f)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			if err != nil {
+				return err
+			}
+			return d.Merge()
+		},
+		Args: cobra.NoArgs,
 	}
 
 	return cmd

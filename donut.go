@@ -106,6 +106,19 @@ func (a *App) Diff() error {
 	return cmd.Run()
 }
 
+func (a *App) Where(dir string) error {
+	switch dir {
+	case "source":
+		fmt.Fprint(a.out, a.Config.Source)
+	case "destination":
+		fmt.Fprint(a.out, a.Config.Destination)
+	case "config":
+		fmt.Fprint(a.out, filepath.Dir(GetConfig().ConfigFileUsed()))
+	default:
+	}
+	return nil
+}
+
 func (a *App) ConfigShow() error {
 	v := GetConfig()
 	f, err := os.Open(v.ConfigFileUsed())

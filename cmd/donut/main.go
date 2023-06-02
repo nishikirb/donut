@@ -41,6 +41,7 @@ func NewRootCmd() *cobra.Command {
 		NewInitCmd(),
 		NewListCmd(),
 		NewDiffCmd(),
+		NewWhereCmd(),
 		NewConfigCmd(),
 		NewApplyCmd(),
 	)
@@ -99,6 +100,28 @@ func NewDiffCmd() *cobra.Command {
 			}
 			return d.Diff()
 		},
+	}
+
+	return cmd
+}
+
+func NewWhereCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "where",
+		Short: "Display the location of the source or destination directory",
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			f, _ := cmd.Flags().GetString("file")
+			return donut.InitConfig(f)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			if err != nil {
+				return err
+			}
+			return d.Where(args[0])
+		},
+		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		ValidArgs: []string{"source", "destination", "config"},
 	}
 
 	return cmd

@@ -82,7 +82,7 @@ brews:
     # Your app's description.
     #
     # Templates: allowed
-    description: "Software to create fast and easy drum rolls."
+    description: "Tiny dotfiles management tool written in Go."
 
     # SPDX identifier of your app's license.
     license: "MIT"
@@ -95,3 +95,4 @@ brews:
     # Default: 'bin.install "BinaryName"'
     install: |
       bin.install "donut"
+      generate_completions_from_executable(bin/"donut", "completion", shells: [:bash, :zsh, :fish])

@@ -106,7 +106,20 @@ func (a *App) Diff() error {
 	return cmd.Run()
 }
 
-func (a *App) EditConfig() error {
+func (a *App) ConfigShow() error {
+	v := GetConfig()
+	f, err := os.Open(v.ConfigFileUsed())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := io.Copy(a.out, f); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *App) ConfigEdit() error {
 	v := GetConfig()
 	editorConfig := a.Config.Editor
 	args := append(editorConfig.Args, v.ConfigFileUsed())

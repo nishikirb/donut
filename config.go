@@ -14,15 +14,10 @@ type Config struct {
 	Source      string   `mapstructure:"source"`
 	Destination string   `mapstructure:"destination"`
 	Excludes    []string `mapstructure:"excludes"`
-	Editor      Command  `mapstructure:"editor"`
-	Diff        Command  `mapstructure:"diff"`
-	Pager       Command  `mapstructure:"pager"`
-	Merge       Command  `mapstructure:"merge"`
-}
-
-type Command struct {
-	Name string   `mapstructure:"command"`
-	Args []string `mapstructure:"args"`
+	Editor      []string `mapstructure:"editor"`
+	Pager       []string `mapstructure:"pager"`
+	Diff        []string `mapstructure:"diff"`
+	Merge       []string `mapstructure:"merge"`
 }
 
 type ConfigOption func(v *viper.Viper) error
@@ -100,14 +95,10 @@ func WithDefault() ConfigOption {
 	return func(v *viper.Viper) error {
 		v.SetDefault("source", defaultSourceDir())
 		v.SetDefault("destination", homedir)
-		v.SetDefault("editor::command", "vim")
-		v.SetDefault("editor::args", []string{})
-		v.SetDefault("diff::command", "diff")
-		v.SetDefault("diff::args", []string{"-upN"})
-		v.SetDefault("pager::command", "less")
-		v.SetDefault("pager::args", []string{"-R"})
-		v.SetDefault("merge::command", "vimdiff")
-		v.SetDefault("merge::args", []string{})
+		v.SetDefault("editor", []string{"vim"})
+		v.SetDefault("pager", []string{"less", "-R"})
+		v.SetDefault("diff", []string{"diff", "-upN", "{{.Destination}}", "{{.Source}}"})
+		v.SetDefault("merge", []string{"vimdiff", "{{.Destination}}", "{{.Source}}"})
 		return nil
 	}
 }

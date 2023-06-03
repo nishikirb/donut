@@ -8,18 +8,21 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"text/template"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 )
 
 type App struct {
-	Config *Config
-	Store  *Store
-	Logger zerolog.Logger
-	in     io.Reader
-	out    io.Writer
-	err    io.Writer
+	Config   *Config
+	Store    *Store
+	Logger   zerolog.Logger
+	template *template.Template
+	in       io.Reader
+	out      io.Writer
+	err      io.Writer
 }
 
 func New(opts ...AppOption) (*App, error) {
@@ -34,7 +37,38 @@ func New(opts ...AppOption) (*App, error) {
 		}
 	}
 
+	if app.Config != nil {
+		if err := app.createTemplates(); err != nil {
+			return nil, err
+		}
+	}
+
 	return app, nil
+}
+
+func (a *App) createTemplates() error {
+	var tmpl = template.New("")
+	var err error
+
+	diffArgs := strings.Join(a.Config.Diff[1:], " ")
+	tmpl, err = tmpl.New("diff").Parse(diffArgs)
+	if err != nil {
+		return err
+	}
+	mergeArgs := strings.Join(a.Config.Merge[1:], " ")
+	tmpl, err = tmpl.New("merge").Parse(mergeArgs)
+	if err != nil {
+		return err
+	}
+
+	a.template = tmpl
+
+	return nil
+}
+
+type templateData struct {
+	Source      string
+	Destination string
 }
 
 func (a *App) Init() error {
@@ -85,7 +119,7 @@ func (a *App) Diff() error {
 	}
 
 	var diff []byte
-	diffConfig := a.Config.Diff
+	diffCmdName := a.Config.Diff[0]
 	for _, pm := range mapper.Mapping {
 		ss, err := fileSystem.GetSum(pm.Source)
 		if err != nil {
@@ -99,22 +133,27 @@ func (a *App) Diff() error {
 			continue
 		}
 
-		args := append(diffConfig.Args, pm.Destination, pm.Source)
-		cmd := exec.Command(diffConfig.Name, args...)
+		argsBuilder := strings.Builder{}
+		if err := a.template.ExecuteTemplate(&argsBuilder, "diff", templateData(pm)); err != nil {
+			return err
+		}
+		args := strings.Split(argsBuilder.String(), " ")
+		cmd := exec.Command(diffCmdName, args...)
 		out, _ := cmd.Output()
-		a.Logger.Info().Str("command", diffConfig.Name).Strs("args", args).Msg("Executed")
+		a.Logger.Info().Str("command", diffCmdName).Strs("args", args).Msg("Executed")
 
 		diff = append(diff, out...)
 	}
 
-	pagerConfig := a.Config.Pager
-	cmd := exec.Command(pagerConfig.Name, pagerConfig.Args...)
+	pagerCmdName := a.Config.Pager[0]
+	pagerCmdArgs := a.Config.Pager[1:]
+	cmd := exec.Command(pagerCmdName, pagerCmdArgs...)
 	cmd.Stdin = bytes.NewBuffer(diff)
 	cmd.Stdout = a.out
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-	a.Logger.Info().Str("command", pagerConfig.Name).Strs("args", pagerConfig.Args).Msg("Executed")
+	a.Logger.Info().Str("command", pagerCmdName).Strs("args", pagerCmdArgs).Msg("Executed")
 	return nil
 }
 
@@ -126,7 +165,7 @@ func (a *App) Merge() error {
 		return err
 	}
 
-	mergeConfig := a.Config.Merge
+	mergeCmdName := a.Config.Merge[0]
 	for _, pm := range mapper.Mapping {
 		ss, err := fileSystem.GetSum(pm.Source)
 		if err != nil {
@@ -140,14 +179,18 @@ func (a *App) Merge() error {
 			continue
 		}
 
-		args := append(mergeConfig.Args, pm.Destination, pm.Source)
-		cmd := exec.Command(mergeConfig.Name, args...)
+		argsBuilder := strings.Builder{}
+		if err := a.template.ExecuteTemplate(&argsBuilder, "merge", templateData(pm)); err != nil {
+			return err
+		}
+		args := strings.Split(argsBuilder.String(), " ")
+		cmd := exec.Command(mergeCmdName, args...)
 		cmd.Stdin = a.in
 		cmd.Stdout = a.out
 		if err := cmd.Run(); err != nil {
 			return err
 		}
-		a.Logger.Info().Str("command", mergeConfig.Name).Strs("args", args).Msg("Executed")
+		a.Logger.Info().Str("command", mergeCmdName).Strs("args", args).Msg("Executed")
 	}
 
 	return nil
@@ -181,9 +224,10 @@ func (a *App) ConfigShow() error {
 
 func (a *App) ConfigEdit() error {
 	v := GetConfig()
-	editorConfig := a.Config.Editor
-	args := append(editorConfig.Args, v.ConfigFileUsed())
-	cmd := exec.Command(a.Config.Editor.Name, args...)
+	editorCmdName := a.Config.Editor[0]
+	editorCmdArgs := a.Config.Editor[1:]
+	args := append(editorCmdArgs, v.ConfigFileUsed())
+	cmd := exec.Command(editorCmdName, args...)
 	cmd.Stdin = a.in
 	cmd.Stdout = a.out
 	return cmd.Run()

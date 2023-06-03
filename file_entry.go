@@ -24,11 +24,13 @@ var _ json.Marshaler = (*FileEntry)(nil)
 var _ json.Unmarshaler = (*FileEntry)(nil)
 
 func NewFileEntry(path string) (*FileEntry, error) {
-	var empty bool
 	f, err := os.Lstat(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			empty = true
+			return &FileEntry{
+				Path:  path,
+				Empty: true,
+			}, nil
 		} else {
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
@@ -36,13 +38,16 @@ func NewFileEntry(path string) (*FileEntry, error) {
 
 	return &FileEntry{
 		Path:    path,
-		Empty:   empty,
+		Empty:   false,
 		Mode:    f.Mode(),
 		ModTime: f.ModTime(),
 	}, nil
 }
 
 func (e *FileEntry) GetSum() ([]byte, error) {
+	if e.Empty {
+		return nil, nil
+	}
 	if e.sum == nil {
 		if err := e.loadSum(); err != nil {
 			return nil, err
@@ -52,6 +57,9 @@ func (e *FileEntry) GetSum() ([]byte, error) {
 }
 
 func (e *FileEntry) GetContent() ([]byte, error) {
+	if e.Empty {
+		return nil, nil
+	}
 	if e.content == nil {
 		if err := e.loadContent(); err != nil {
 			return nil, err

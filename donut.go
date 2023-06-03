@@ -9,12 +9,14 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 )
 
 type App struct {
 	Config *Config
 	Store  *Store
+	Logger zerolog.Logger
 	in     io.Reader
 	out    io.Writer
 	err    io.Writer
@@ -49,6 +51,8 @@ func (a *App) Init() error {
 	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return err
 	}
+	a.Logger.Info().Str("name", filepath.Dir(path)).Msg("Created")
+
 	v, _ := NewConfig(WithDefault())
 	if err := v.SafeWriteConfigAs(path); err != nil {
 		return err
@@ -98,6 +102,8 @@ func (a *App) Diff() error {
 		args := append(diffConfig.Args, pm.Destination, pm.Source)
 		cmd := exec.Command(diffConfig.Name, args...)
 		out, _ := cmd.Output()
+		a.Logger.Info().Str("command", diffConfig.Name).Strs("args", args).Msg("Executed")
+
 		diff = append(diff, out...)
 	}
 
@@ -105,7 +111,11 @@ func (a *App) Diff() error {
 	cmd := exec.Command(pagerConfig.Name, pagerConfig.Args...)
 	cmd.Stdin = bytes.NewBuffer(diff)
 	cmd.Stdout = a.out
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	a.Logger.Info().Str("command", pagerConfig.Name).Strs("args", pagerConfig.Args).Msg("Executed")
+	return nil
 }
 
 func (a *App) Merge() error {
@@ -137,6 +147,7 @@ func (a *App) Merge() error {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
+		a.Logger.Info().Str("command", mergeConfig.Name).Strs("args", args).Msg("Executed")
 	}
 
 	return nil
@@ -205,6 +216,7 @@ func (a *App) Apply() error {
 		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 			return err
 		}
+		a.Logger.Info().Str("name", dir).Msg("Created")
 		if err := a.Overwrite(pm.Source, pm.Destination); err != nil {
 			return err
 		}
@@ -234,5 +246,7 @@ func (a *App) Overwrite(src, dst string) error {
 	if _, err := f.Write(c); err != nil {
 		return err
 	}
+	a.Logger.Info().Str("name", dst).Msg("Updated")
+
 	return nil
 }

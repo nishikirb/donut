@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/gleamsoda/donut"
 )
@@ -14,9 +15,16 @@ func main() {
 	}
 }
 
+var isDebug bool
+
 func init() {
+	pflag.BoolVarP(&isDebug, "debug", "d", false, "Enable debug log")
+
 	cobra.OnInitialize(func() {
 		if err := donut.InitStore(); err != nil {
+			panic(err)
+		}
+		if err := donut.InitLogger(os.Stdout, isDebug); err != nil {
 			panic(err)
 		}
 	})
@@ -56,7 +64,7 @@ func NewInitCmd() *cobra.Command {
 		Short: "Create a default configuration file",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, _ := donut.New()
+			d, _ := donut.New(donut.WithLogger(donut.GetLogger()))
 			return d.Init()
 		},
 	}
@@ -74,7 +82,7 @@ func NewListCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
 			if err != nil {
 				return err
 			}
@@ -95,7 +103,7 @@ func NewDiffCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithStore(donut.GetStore()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithStore(donut.GetStore()), donut.WithLogger(donut.GetLogger()), donut.WithLogger(donut.GetLogger()))
 			if err != nil {
 				return err
 			}
@@ -115,7 +123,7 @@ func NewMergeCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
 			if err != nil {
 				return err
 			}
@@ -136,7 +144,7 @@ func NewWhereCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
 			if err != nil {
 				return err
 			}
@@ -158,7 +166,7 @@ func NewConfigCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
 			if err != nil {
 				return err
 			}
@@ -180,7 +188,7 @@ func NewConfigEditCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
 			if err != nil {
 				return err
 			}
@@ -201,7 +209,7 @@ func NewApplyCmd() *cobra.Command {
 			return donut.InitConfig(f)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithStore(donut.GetStore()))
+			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithStore(donut.GetStore()), donut.WithLogger(donut.GetLogger()))
 			if err != nil {
 				return err
 			}

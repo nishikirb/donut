@@ -3,6 +3,7 @@ package donut
 import (
 	"io"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 )
 
@@ -25,6 +26,13 @@ func WithConfig(v *viper.Viper) AppOption {
 func WithStore(s *Store) AppOption {
 	return func(a *App) error {
 		a.Store = s
+		return nil
+	}
+}
+
+func WithLogger(l zerolog.Logger) AppOption {
+	return func(a *App) error {
+		a.Logger = l
 		return nil
 	}
 }

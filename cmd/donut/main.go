@@ -160,29 +160,7 @@ func NewWhereCmd() *cobra.Command {
 func NewConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Display the contents of the configuration file",
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			f, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(f)
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
-			if err != nil {
-				return err
-			}
-			return d.ConfigShow(cmd.Context())
-		},
-	}
-
-	cmd.AddCommand(NewConfigEditCmd())
-	return cmd
-}
-
-func NewConfigEditCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "edit",
 		Short: "Edit the configuration file",
-		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			f, _ := cmd.Flags().GetString("file")
 			return donut.InitConfig(f)

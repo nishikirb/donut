@@ -230,19 +230,6 @@ func (a *App) Where(_ context.Context, dir string) error {
 	return nil
 }
 
-func (a *App) ConfigShow(_ context.Context) error {
-	v := GetConfig()
-	f, err := os.Open(v.ConfigFileUsed())
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err := io.Copy(a.out, f); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (a *App) ConfigEdit(_ context.Context) error {
 	v := GetConfig()
 	editorCmdName := a.Config.Editor[0]

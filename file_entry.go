@@ -45,7 +45,7 @@ func NewFileEntry(path string) (*FileEntry, error) {
 }
 
 func (e *FileEntry) GetSum() ([]byte, error) {
-	if e.Empty {
+	if e == nil || e.Empty {
 		return nil, nil
 	}
 	if e.sum == nil {
@@ -57,7 +57,7 @@ func (e *FileEntry) GetSum() ([]byte, error) {
 }
 
 func (e *FileEntry) GetContent() ([]byte, error) {
-	if e.Empty {
+	if e == nil || e.Empty {
 		return nil, nil
 	}
 	if e.content == nil {

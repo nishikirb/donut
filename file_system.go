@@ -33,3 +33,12 @@ func (m *FileSystem) GetSum(path string) ([]byte, error) {
 func (m *FileSystem) Set(path string, f *FileEntry) {
 	m.FileEntryMap.Store(path, f)
 }
+
+func (m *FileSystem) Reload(path string) (*FileEntry, error) {
+	if f, err := NewFileEntry(path); err != nil {
+		return nil, err
+	} else {
+		m.Set(path, f)
+		return f, nil
+	}
+}

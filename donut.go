@@ -241,7 +241,7 @@ func (a *App) ConfigEdit(_ context.Context) error {
 	return cmd.Run()
 }
 
-func (a *App) Apply(ctx context.Context) error {
+func (a *App) Apply(ctx context.Context, overwrite bool) error {
 	mapper, err := NewPathMapperBuilder(
 		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
 	).Build()
@@ -270,6 +270,24 @@ func (a *App) Apply(ctx context.Context) error {
 					return nil
 				}
 
+				var le *FileEntry
+				if err := a.Store.Get(FileEntryBucket, pm.Destination, &le); err != nil {
+					return err
+				}
+				ls, err := le.GetSum()
+				if err != nil {
+					return err
+				}
+
+				// skip if the following conditions are met
+				// 1. exist in store
+				// 2. checksum is equal to destination
+				// 3. overwrite is false
+				if ls != nil && !bytes.Equal(ls, ds) && !overwrite {
+					fmt.Fprintf(a.out, "%s has been modified since the last apply. use --overwrite to overwrite\n", pm.Destination)
+					return nil
+				}
+
 				// If the directory does not exist, create it
 				// os.MkdirAll will return nil if directory already exists
 				dir := filepath.Dir(pm.Destination)
@@ -281,6 +299,13 @@ func (a *App) Apply(ctx context.Context) error {
 					return err
 				}
 
+				de, err := fileSystem.Reload(pm.Destination)
+				if err != nil {
+					return err
+				}
+				if err := a.Store.Set(FileEntryBucket, pm.Destination, de); err != nil {
+					return err
+				}
 				fmt.Fprintf(a.out, "Applied to %s from %s\n", pm.Destination, pm.Source)
 				return nil
 			}
@@ -301,18 +326,18 @@ func (a *App) Overwrite(src, dst string) error {
 	}
 	defer f.Close()
 
-	e, err := fileSystem.Get(src)
+	se, err := fileSystem.Get(src)
 	if err != nil {
 		return err
 	}
-	c, err := e.GetContent()
+	sc, err := se.GetContent()
 	if err != nil {
 		return err
 	}
-	if _, err := f.Write(c); err != nil {
+	if _, err := f.Write(sc); err != nil {
 		return err
 	}
-	a.Logger.Info().Str("name", dst).Msg("Updated")
 
+	a.Logger.Info().Str("name", dst).Msg("Updated")
 	return nil
 }

@@ -191,9 +191,12 @@ func NewApplyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return d.Apply(cmd.Context())
+			o, _ := cmd.Flags().GetBool("overwrite")
+			return d.Apply(cmd.Context(), o)
 		},
 	}
+
+	cmd.Flags().BoolP("overwrite", "o", false, "Overwrite the destination file with the source file")
 
 	return cmd
 }

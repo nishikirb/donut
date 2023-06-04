@@ -18,13 +18,15 @@ type Config struct {
 	Pager       []string `mapstructure:"pager"`
 	Diff        []string `mapstructure:"diff"`
 	Merge       []string `mapstructure:"merge"`
+	Concurrency int
 }
 
 type ConfigOption func(v *viper.Viper) error
 
 var (
-	config     = viper.New()
-	initConfig sync.Once
+	config             = viper.New()
+	initConfig         sync.Once
+	defaultConcurrency = 8
 )
 
 func InitConfig(path string) error {

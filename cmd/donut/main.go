@@ -65,7 +65,7 @@ func NewInitCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			d, _ := donut.New(donut.WithLogger(donut.GetLogger()))
-			return d.Init()
+			return d.Init(cmd.Context())
 		},
 	}
 
@@ -86,7 +86,7 @@ func NewListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return d.List()
+			return d.List(cmd.Context())
 		},
 	}
 
@@ -107,7 +107,7 @@ func NewDiffCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return d.Diff()
+			return d.Diff(cmd.Context())
 		},
 	}
 
@@ -127,7 +127,7 @@ func NewMergeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return d.Merge()
+			return d.Merge(cmd.Context())
 		},
 		Args: cobra.NoArgs,
 	}
@@ -148,7 +148,7 @@ func NewWhereCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return d.Where(args[0])
+			return d.Where(cmd.Context(), args[0])
 		},
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		ValidArgs: []string{"source", "destination", "config"},
@@ -170,7 +170,7 @@ func NewConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return d.ConfigShow()
+			return d.ConfigShow(cmd.Context())
 		},
 	}
 
@@ -192,7 +192,7 @@ func NewConfigEditCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return d.ConfigEdit()
+			return d.ConfigEdit(cmd.Context())
 		},
 	}
 
@@ -213,7 +213,7 @@ func NewApplyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return d.Apply()
+			return d.Apply(cmd.Context())
 		},
 	}
 

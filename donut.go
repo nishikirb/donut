@@ -2,6 +2,7 @@ package donut
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
@@ -71,7 +73,7 @@ type templateData struct {
 	Destination string
 }
 
-func (a *App) Init() error {
+func (a *App) Init(_ context.Context) error {
 	// check config file exists in default path
 	// if exists, no need to init
 	_, err := NewConfig(WithDefault(), WithNameAndPath(AppName, DefaultConfigDirs()...))
@@ -96,7 +98,7 @@ func (a *App) Init() error {
 	return nil
 }
 
-func (a *App) List() error {
+func (a *App) List(_ context.Context) error {
 	mapper, err := NewPathMapperBuilder(
 		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
 	).Build()
@@ -110,7 +112,7 @@ func (a *App) List() error {
 	return nil
 }
 
-func (a *App) Diff() error {
+func (a *App) Diff(ctx context.Context) error {
 	mapper, err := NewPathMapperBuilder(
 		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
 	).Build()
@@ -118,36 +120,55 @@ func (a *App) Diff() error {
 		return err
 	}
 
-	var diff []byte
 	diffCmdName := a.Config.Diff[0]
+	diffCh := make(chan []byte, len(mapper.Mapping))
+	eg, ectx := errgroup.WithContext(context.Background())
+	eg.SetLimit(a.Config.Concurrency)
 	for _, pm := range mapper.Mapping {
-		ss, err := fileSystem.GetSum(pm.Source)
-		if err != nil {
-			return err
-		}
-		ds, err := fileSystem.GetSum(pm.Destination)
-		if err != nil {
-			return err
-		}
-		if bytes.Equal(ss, ds) {
-			continue
-		}
+		pm := pm
+		eg.Go(func() error {
+			select {
+			case <-ectx.Done():
+				return ectx.Err()
+			default:
+				ss, err := fileSystem.GetSum(pm.Source)
+				if err != nil {
+					return err
+				}
+				ds, err := fileSystem.GetSum(pm.Destination)
+				if err != nil {
+					return err
+				}
+				if bytes.Equal(ss, ds) {
+					return nil
+				}
 
-		argsBuilder := strings.Builder{}
-		if err := a.template.ExecuteTemplate(&argsBuilder, "diff", templateData(pm)); err != nil {
-			return err
-		}
-		args := strings.Split(argsBuilder.String(), " ")
-		cmd := exec.Command(diffCmdName, args...)
-		out, _ := cmd.Output()
-		a.Logger.Info().Str("command", diffCmdName).Strs("args", args).Msg("Executed")
+				argsBuilder := strings.Builder{}
+				if err := a.template.ExecuteTemplate(&argsBuilder, "diff", templateData(pm)); err != nil {
+					return err
+				}
+				args := strings.Split(argsBuilder.String(), " ")
+				cmd := exec.CommandContext(ectx, diffCmdName, args...)
+				out, _ := cmd.Output()
+				a.Logger.Info().Str("command", diffCmdName).Strs("args", args).Msg("Executed")
+				diffCh <- out
+				return nil
+			}
+		})
+	}
 
-		diff = append(diff, out...)
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	close(diffCh)
+	var diff []byte
+	for v := range diffCh {
+		diff = append(diff, v...)
 	}
 
 	pagerCmdName := a.Config.Pager[0]
 	pagerCmdArgs := a.Config.Pager[1:]
-	cmd := exec.Command(pagerCmdName, pagerCmdArgs...)
+	cmd := exec.CommandContext(ctx, pagerCmdName, pagerCmdArgs...)
 	cmd.Stdin = bytes.NewBuffer(diff)
 	cmd.Stdout = a.out
 	if err := cmd.Run(); err != nil {
@@ -157,7 +178,7 @@ func (a *App) Diff() error {
 	return nil
 }
 
-func (a *App) Merge() error {
+func (a *App) Merge(ctx context.Context) error {
 	mapper, err := NewPathMapperBuilder(
 		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
 	).Build()
@@ -184,7 +205,7 @@ func (a *App) Merge() error {
 			return err
 		}
 		args := strings.Split(argsBuilder.String(), " ")
-		cmd := exec.Command(mergeCmdName, args...)
+		cmd := exec.CommandContext(ctx, mergeCmdName, args...)
 		cmd.Stdin = a.in
 		cmd.Stdout = a.out
 		if err := cmd.Run(); err != nil {
@@ -196,7 +217,7 @@ func (a *App) Merge() error {
 	return nil
 }
 
-func (a *App) Where(dir string) error {
+func (a *App) Where(_ context.Context, dir string) error {
 	switch dir {
 	case "source":
 		fmt.Fprint(a.out, a.Config.Source)
@@ -209,7 +230,7 @@ func (a *App) Where(dir string) error {
 	return nil
 }
 
-func (a *App) ConfigShow() error {
+func (a *App) ConfigShow(_ context.Context) error {
 	v := GetConfig()
 	f, err := os.Open(v.ConfigFileUsed())
 	if err != nil {
@@ -222,7 +243,7 @@ func (a *App) ConfigShow() error {
 	return nil
 }
 
-func (a *App) ConfigEdit() error {
+func (a *App) ConfigEdit(_ context.Context) error {
 	v := GetConfig()
 	editorCmdName := a.Config.Editor[0]
 	editorCmdArgs := a.Config.Editor[1:]
@@ -233,7 +254,7 @@ func (a *App) ConfigEdit() error {
 	return cmd.Run()
 }
 
-func (a *App) Apply() error {
+func (a *App) Apply(ctx context.Context) error {
 	mapper, err := NewPathMapperBuilder(
 		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
 	).Build()
@@ -241,33 +262,47 @@ func (a *App) Apply() error {
 		return err
 	}
 
+	eg, ectx := errgroup.WithContext(ctx)
+	eg.SetLimit(a.Config.Concurrency)
 	for _, pm := range mapper.Mapping {
-		ss, err := fileSystem.GetSum(pm.Source)
-		if err != nil {
-			return err
-		}
-		ds, err := fileSystem.GetSum(pm.Destination)
-		if err != nil {
-			return err
-		}
-		if bytes.Equal(ss, ds) {
-			continue
-		}
+		pm := pm
+		eg.Go(func() error {
+			select {
+			case <-ectx.Done():
+				return ectx.Err()
+			default:
+				ss, err := fileSystem.GetSum(pm.Source)
+				if err != nil {
+					return err
+				}
+				ds, err := fileSystem.GetSum(pm.Destination)
+				if err != nil {
+					return err
+				}
+				if bytes.Equal(ss, ds) {
+					return nil
+				}
 
-		// If the directory does not exist, create it
-		// os.MkdirAll will return nil if directory already exists
-		dir := filepath.Dir(pm.Destination)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			return err
-		}
-		a.Logger.Info().Str("name", dir).Msg("Created")
-		if err := a.Overwrite(pm.Source, pm.Destination); err != nil {
-			return err
-		}
+				// If the directory does not exist, create it
+				// os.MkdirAll will return nil if directory already exists
+				dir := filepath.Dir(pm.Destination)
+				if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+					return err
+				}
+				a.Logger.Info().Str("name", dir).Msg("Created")
+				if err := a.Overwrite(pm.Source, pm.Destination); err != nil {
+					return err
+				}
 
-		fmt.Fprintf(a.out, "Applied a patch to the destination file. %s from %s\n", pm.Destination, pm.Source)
+				fmt.Fprintf(a.out, "Applied to %s from %s\n", pm.Destination, pm.Source)
+				return nil
+			}
+		})
 	}
 
+	if err := eg.Wait(); err != nil {
+		return err
+	}
 	return nil
 }
 

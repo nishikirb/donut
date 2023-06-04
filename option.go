@@ -18,6 +18,7 @@ func WithConfig(v *viper.Viper) AppOption {
 		if err := validateConfig(&c); err != nil {
 			return err
 		}
+		c.Concurrency = defaultConcurrency
 		a.Config = &c
 		return nil
 	}

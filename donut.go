@@ -12,6 +12,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/google/renameio/v2"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
@@ -320,12 +321,6 @@ func (a *App) Apply(ctx context.Context, overwrite bool) error {
 
 // Overwrite replaces the contents of dst with the contents of src.
 func (a *App) Overwrite(src, dst string) error {
-	f, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	se, err := fileSystem.Get(src)
 	if err != nil {
 		return err
@@ -334,7 +329,7 @@ func (a *App) Overwrite(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := f.Write(sc); err != nil {
+	if err := renameio.WriteFile(dst, sc, os.ModePerm); err != nil {
 		return err
 	}
 

@@ -3,6 +3,7 @@ module github.com/gleamsoda/donut
 go 1.20
 
 require (
+	github.com/google/renameio/v2 v2.0.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.29.1
 	github.com/spf13/cobra v1.7.0

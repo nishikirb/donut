@@ -2,12 +2,11 @@ package donut
 
 import (
 	"path/filepath"
-	"sync"
 
 	"github.com/spf13/viper"
 )
 
-const AppName string = "donut"
+const appName string = "donut"
 const defaultConfigExt = "toml"
 
 type Config struct {
@@ -19,31 +18,12 @@ type Config struct {
 	Diff        []string `mapstructure:"diff"`
 	Merge       []string `mapstructure:"merge"`
 	Concurrency int
+	File        string
 }
 
 type ConfigOption func(v *viper.Viper) error
 
-var (
-	config             = viper.New()
-	initConfig         sync.Once
-	defaultConcurrency = 8
-)
-
-func InitConfig(path string) error {
-	var err error
-	initConfig.Do(func() {
-		var opts []ConfigOption
-		if path != "" {
-			opts = append(opts, WithDefault(), WithFile(path))
-		} else {
-			opts = append(opts, WithDefault(), WithNameAndPath(AppName, DefaultConfigDirs()...))
-		}
-
-		config, err = NewConfig(opts...)
-	})
-
-	return err
-}
+var defaultConcurrency = 8
 
 func NewConfig(opts ...ConfigOption) (*viper.Viper, error) {
 	v := viper.NewWithOptions(viper.KeyDelimiter("::"))
@@ -57,8 +37,14 @@ func NewConfig(opts ...ConfigOption) (*viper.Viper, error) {
 	return v, nil
 }
 
-func GetConfig() *viper.Viper {
-	return config
+func WithPath(path string) []ConfigOption {
+	var opts []ConfigOption
+	if path != "" {
+		opts = []ConfigOption{WithDefault(), WithFile(path)}
+	} else {
+		opts = []ConfigOption{WithDefault(), WithNameAndPath(appName, defaultConfigDirs()...)}
+	}
+	return opts
 }
 
 func WithFile(path string) ConfigOption {
@@ -96,7 +82,7 @@ func WithData(data map[string]interface{}) ConfigOption {
 func WithDefault() ConfigOption {
 	return func(v *viper.Viper) error {
 		v.SetDefault("source", defaultSourceDir())
-		v.SetDefault("destination", homedir)
+		v.SetDefault("destination", UserHomeDir)
 		v.SetDefault("editor", []string{"vim"})
 		v.SetDefault("pager", []string{"less", "-R"})
 		v.SetDefault("diff", []string{"diff", "-upN", "{{.Destination}}", "{{.Source}}"})
@@ -105,23 +91,23 @@ func WithDefault() ConfigOption {
 	}
 }
 
-func DefaultConfigFile() string {
-	return filepath.Join(homedir, ".config", AppName, AppName+"."+defaultConfigExt)
+func defaultConfigFile() string {
+	return filepath.Join(UserHomeDir, ".config", appName, appName+"."+defaultConfigExt)
 }
 
-func DefaultConfigDirs() []string {
+func defaultConfigDirs() []string {
 	return []string{
 		"$XDG_CONFIG_HOME",
-		filepath.Join("$XDG_CONFIG_HOME", AppName),
-		filepath.Join(homedir, ".config"),
-		filepath.Join(homedir, ".config", AppName),
+		filepath.Join("$XDG_CONFIG_HOME", appName),
+		filepath.Join(UserHomeDir, ".config"),
+		filepath.Join(UserHomeDir, ".config", appName),
 	}
 }
 
 func defaultSourceDir() string {
-	return filepath.Join(homedir, ".local", "share", AppName)
+	return filepath.Join(UserHomeDir, ".local", "share", appName)
 }
 
 func defaultStateDir() string {
-	return filepath.Join(homedir, ".local", "state", AppName)
+	return filepath.Join(UserHomeDir, ".local", "state", appName)
 }

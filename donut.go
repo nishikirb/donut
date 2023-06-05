@@ -14,81 +14,89 @@ import (
 
 	"github.com/google/renameio/v2"
 	"github.com/rs/zerolog"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
-	Config   *Config
-	Store    *Store
-	Logger   zerolog.Logger
-	template *template.Template
-	in       io.Reader
-	out      io.Writer
-	err      io.Writer
+	commands   map[string]handler
+	middleware map[string][]middleware
+	opts       []Option
+	config     *Config
+	store      *Store
+	logger     zerolog.Logger
+	template   *template.Template
+	in         io.Reader
+	out        io.Writer
+	err        io.Writer
 }
 
-func New(opts ...AppOption) (*App, error) {
-	app := &App{
-		in:  os.Stdin,
-		out: os.Stdout,
-		err: os.Stderr,
-	}
-	for _, opt := range opts {
-		if err := opt(app); err != nil {
-			return nil, err
-		}
-	}
-
-	if app.Config != nil {
-		if err := app.createTemplates(); err != nil {
-			return nil, err
-		}
-	}
-
-	return app, nil
-}
-
-func (a *App) createTemplates() error {
-	var tmpl = template.New("")
-	var err error
-
-	diffArgs := strings.Join(a.Config.Diff[1:], " ")
-	tmpl, err = tmpl.New("diff").Parse(diffArgs)
-	if err != nil {
-		return err
-	}
-	mergeArgs := strings.Join(a.Config.Merge[1:], " ")
-	tmpl, err = tmpl.New("merge").Parse(mergeArgs)
-	if err != nil {
-		return err
-	}
-
-	a.template = tmpl
-
-	return nil
-}
+type handler func(ctx context.Context, args []string, flags *pflag.FlagSet) error
+type middleware func(handler) handler
 
 type templateData struct {
 	Source      string
 	Destination string
 }
 
-func (a *App) Init(_ context.Context) error {
+func NewApp(opts ...Option) *App {
+	app := &App{
+		in:     os.Stdin,
+		out:    os.Stdout,
+		err:    os.Stderr,
+		logger: NewLogger(os.Stdout, false),
+		opts:   []Option{WithConfigLoader(WithDefault())},
+	}
+
+	app.handle("init", app.init)
+	app.handle("list", app.list)
+	app.handle("diff", app.diff)
+	app.handle("merge", app.merge)
+	app.handle("where", app.where)
+	app.handle("config", app.configEdit)
+	app.handle("apply", app.apply)
+
+	return app
+}
+
+func (a *App) AddOptions(opts ...Option) *App {
+	a.opts = append(a.opts, opts...)
+	return a
+}
+
+func (a *App) Run(ctx context.Context, command string, args []string, flags *pflag.FlagSet) error {
+	h, ok := a.commands[command]
+	if !ok {
+		return fmt.Errorf("unknown command: %s", command)
+	}
+
+	for _, mw := range a.middleware[command] {
+		h = mw(h)
+	}
+
+	if err := a.applyOptions(); err != nil {
+		return err
+	}
+
+	return h(ctx, args, flags)
+}
+
+func (a *App) init(_ context.Context, _ []string, _ *pflag.FlagSet) error {
 	// check config file exists in default path
 	// if exists, no need to init
-	_, err := NewConfig(WithDefault(), WithNameAndPath(AppName, DefaultConfigDirs()...))
+	_, err := NewConfig(WithPath("")...)
 	if err == nil {
 		return errors.New("config file already exists. no need to init")
 	} else if !errors.As(err, &viper.ConfigFileNotFoundError{}) {
 		return fmt.Errorf("config file already exists, but error: %w", err)
 	}
 
-	path := DefaultConfigFile()
+	path := defaultConfigFile()
 	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return err
 	}
-	a.Logger.Info().Str("name", filepath.Dir(path)).Msg("Created")
+	a.logger.Info().Str("name", filepath.Dir(path)).Msg("Created")
 
 	v, _ := NewConfig(WithDefault())
 	if err := v.SafeWriteConfigAs(path); err != nil {
@@ -99,9 +107,9 @@ func (a *App) Init(_ context.Context) error {
 	return nil
 }
 
-func (a *App) List(_ context.Context) error {
+func (a *App) list(_ context.Context, _ []string, _ *pflag.FlagSet) error {
 	mapper, err := NewPathMapperBuilder(
-		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
+		a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...),
 	).Build()
 	if err != nil {
 		return err
@@ -113,18 +121,18 @@ func (a *App) List(_ context.Context) error {
 	return nil
 }
 
-func (a *App) Diff(ctx context.Context) error {
+func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 	mapper, err := NewPathMapperBuilder(
-		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
+		a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...),
 	).Build()
 	if err != nil {
 		return err
 	}
 
-	diffCmdName := a.Config.Diff[0]
+	diffCmdName := a.config.Diff[0]
 	diffCh := make(chan []byte, len(mapper.Mapping))
 	eg, ectx := errgroup.WithContext(context.Background())
-	eg.SetLimit(a.Config.Concurrency)
+	eg.SetLimit(a.config.Concurrency)
 	for _, pm := range mapper.Mapping {
 		pm := pm
 		eg.Go(func() error {
@@ -132,11 +140,11 @@ func (a *App) Diff(ctx context.Context) error {
 			case <-ectx.Done():
 				return ectx.Err()
 			default:
-				ss, err := fileSystem.GetSum(pm.Source)
+				ss, err := fileEntryMap.GetSum(pm.Source)
 				if err != nil {
 					return err
 				}
-				ds, err := fileSystem.GetSum(pm.Destination)
+				ds, err := fileEntryMap.GetSum(pm.Destination)
 				if err != nil {
 					return err
 				}
@@ -145,13 +153,14 @@ func (a *App) Diff(ctx context.Context) error {
 				}
 
 				argsBuilder := strings.Builder{}
-				if err := a.template.ExecuteTemplate(&argsBuilder, "diff", templateData(pm)); err != nil {
+				data := templateData(pm)
+				if err := a.template.ExecuteTemplate(&argsBuilder, "diff", data); err != nil {
 					return err
 				}
 				args := strings.Split(argsBuilder.String(), " ")
 				cmd := exec.CommandContext(ectx, diffCmdName, args...)
 				out, _ := cmd.Output()
-				a.Logger.Info().Str("command", diffCmdName).Strs("args", args).Msg("Executed")
+				a.logger.Info().Str("command", diffCmdName).Strs("args", args).Msg("Executed")
 				diffCh <- out
 				return nil
 			}
@@ -167,33 +176,33 @@ func (a *App) Diff(ctx context.Context) error {
 		diff = append(diff, v...)
 	}
 
-	pagerCmdName := a.Config.Pager[0]
-	pagerCmdArgs := a.Config.Pager[1:]
+	pagerCmdName := a.config.Pager[0]
+	pagerCmdArgs := a.config.Pager[1:]
 	cmd := exec.CommandContext(ctx, pagerCmdName, pagerCmdArgs...)
 	cmd.Stdin = bytes.NewBuffer(diff)
 	cmd.Stdout = a.out
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-	a.Logger.Info().Str("command", pagerCmdName).Strs("args", pagerCmdArgs).Msg("Executed")
+	a.logger.Info().Str("command", pagerCmdName).Strs("args", pagerCmdArgs).Msg("Executed")
 	return nil
 }
 
-func (a *App) Merge(ctx context.Context) error {
+func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 	mapper, err := NewPathMapperBuilder(
-		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
+		a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...),
 	).Build()
 	if err != nil {
 		return err
 	}
 
-	mergeCmdName := a.Config.Merge[0]
+	mergeCmdName := a.config.Merge[0]
 	for _, pm := range mapper.Mapping {
-		ss, err := fileSystem.GetSum(pm.Source)
+		ss, err := fileEntryMap.GetSum(pm.Source)
 		if err != nil {
 			return err
 		}
-		ds, err := fileSystem.GetSum(pm.Destination)
+		ds, err := fileEntryMap.GetSum(pm.Destination)
 		if err != nil {
 			return err
 		}
@@ -202,7 +211,8 @@ func (a *App) Merge(ctx context.Context) error {
 		}
 
 		argsBuilder := strings.Builder{}
-		if err := a.template.ExecuteTemplate(&argsBuilder, "merge", templateData(pm)); err != nil {
+		data := templateData(pm)
+		if err := a.template.ExecuteTemplate(&argsBuilder, "merge", data); err != nil {
 			return err
 		}
 		args := strings.Split(argsBuilder.String(), " ")
@@ -212,46 +222,50 @@ func (a *App) Merge(ctx context.Context) error {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
-		a.Logger.Info().Str("command", mergeCmdName).Strs("args", args).Msg("Executed")
+		a.logger.Info().Str("command", mergeCmdName).Strs("args", args).Msg("Executed")
 	}
 
 	return nil
 }
 
-func (a *App) Where(_ context.Context, dir string) error {
-	switch dir {
+func (a *App) where(_ context.Context, args []string, _ *pflag.FlagSet) error {
+	if len(args) != 1 {
+		return errors.New("invalid argument")
+	}
+	switch dir := args[0]; dir {
 	case "source":
-		fmt.Fprint(a.out, a.Config.Source)
+		fmt.Fprintln(a.out, a.config.Source)
 	case "destination":
-		fmt.Fprint(a.out, a.Config.Destination)
+		fmt.Fprintln(a.out, a.config.Destination)
 	case "config":
-		fmt.Fprint(a.out, filepath.Dir(GetConfig().ConfigFileUsed()))
+		fmt.Fprintln(a.out, filepath.Dir(a.config.File))
 	default:
 	}
 	return nil
 }
 
-func (a *App) ConfigEdit(_ context.Context) error {
-	v := GetConfig()
-	editorCmdName := a.Config.Editor[0]
-	editorCmdArgs := a.Config.Editor[1:]
-	args := append(editorCmdArgs, v.ConfigFileUsed())
+func (a *App) configEdit(_ context.Context, _ []string, _ *pflag.FlagSet) error {
+	editorCmdName := a.config.Editor[0]
+	editorCmdArgs := a.config.Editor[1:]
+	args := append(editorCmdArgs, a.config.File)
 	cmd := exec.Command(editorCmdName, args...)
 	cmd.Stdin = a.in
 	cmd.Stdout = a.out
 	return cmd.Run()
 }
 
-func (a *App) Apply(ctx context.Context, overwrite bool) error {
+func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error {
+	overwrite, _ := flags.GetBool("overwrite")
+
 	mapper, err := NewPathMapperBuilder(
-		a.Config.Source, a.Config.Destination, WithExcludes(a.Config.Excludes...),
+		a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...),
 	).Build()
 	if err != nil {
 		return err
 	}
 
 	eg, ectx := errgroup.WithContext(ctx)
-	eg.SetLimit(a.Config.Concurrency)
+	eg.SetLimit(a.config.Concurrency)
 	for _, pm := range mapper.Mapping {
 		pm := pm
 		eg.Go(func() error {
@@ -259,11 +273,11 @@ func (a *App) Apply(ctx context.Context, overwrite bool) error {
 			case <-ectx.Done():
 				return ectx.Err()
 			default:
-				ss, err := fileSystem.GetSum(pm.Source)
+				ss, err := fileEntryMap.GetSum(pm.Source)
 				if err != nil {
 					return err
 				}
-				ds, err := fileSystem.GetSum(pm.Destination)
+				ds, err := fileEntryMap.GetSum(pm.Destination)
 				if err != nil {
 					return err
 				}
@@ -272,7 +286,7 @@ func (a *App) Apply(ctx context.Context, overwrite bool) error {
 				}
 
 				var be *FileEntry
-				if err := a.Store.Get(FileEntryBucket, pm.Destination, &be); err != nil {
+				if err := a.store.Get(FileEntryBucket, pm.Destination, &be); err != nil {
 					return err
 				}
 				bs, err := be.GetSum()
@@ -285,7 +299,7 @@ func (a *App) Apply(ctx context.Context, overwrite bool) error {
 				// 2. checksum is equal to destination
 				// 3. overwrite is false
 				if bs != nil && !bytes.Equal(bs, ds) && !overwrite {
-					fmt.Fprintf(a.out, "%s has been modified since the last apply. use --overwrite to overwrite\n", pm.Destination)
+					fmt.Fprintf(a.out, "Skipped: %s has been modified since the last apply. use --overwrite to overwrite\n", pm.Destination)
 					return nil
 				}
 
@@ -295,19 +309,19 @@ func (a *App) Apply(ctx context.Context, overwrite bool) error {
 				if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 					return err
 				}
-				a.Logger.Info().Str("name", dir).Msg("Created")
-				if err := a.Overwrite(pm.Source, pm.Destination); err != nil {
+				a.logger.Info().Str("name", dir).Msg("Created")
+				if err := a.overwrite(pm.Source, pm.Destination); err != nil {
 					return err
 				}
 
-				de, err := fileSystem.Reload(pm.Destination)
+				de, err := fileEntryMap.Reload(pm.Destination)
 				if err != nil {
 					return err
 				}
-				if err := a.Store.Set(FileEntryBucket, pm.Destination, de); err != nil {
+				if err := a.store.Set(FileEntryBucket, pm.Destination, de); err != nil {
 					return err
 				}
-				fmt.Fprintf(a.out, "Applied to %s from %s\n", pm.Destination, pm.Source)
+				fmt.Fprintf(a.out, "Applied: %s from %s\n", pm.Destination, pm.Source)
 				return nil
 			}
 		})
@@ -319,9 +333,53 @@ func (a *App) Apply(ctx context.Context, overwrite bool) error {
 	return nil
 }
 
-// Overwrite replaces the contents of dst with the contents of src.
-func (a *App) Overwrite(src, dst string) error {
-	se, err := fileSystem.Get(src)
+func (a *App) handle(name string, h handler, ms ...middleware) {
+	if a.commands == nil {
+		a.commands = make(map[string]handler)
+	}
+	a.commands[name] = h
+	if a.middleware == nil {
+		a.middleware = make(map[string][]middleware)
+	}
+	a.middleware[name] = ms
+}
+
+func (a *App) applyOptions() error {
+	for _, opt := range a.opts {
+		if err := opt(a); err != nil {
+			return err
+		}
+	}
+
+	if err := a.createTemplates(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *App) createTemplates() error {
+	var tmpl = template.New("")
+	var err error
+
+	diffArgs := strings.Join(a.config.Diff[1:], " ")
+	tmpl, err = tmpl.New("diff").Parse(diffArgs)
+	if err != nil {
+		return err
+	}
+	mergeArgs := strings.Join(a.config.Merge[1:], " ")
+	tmpl, err = tmpl.New("merge").Parse(mergeArgs)
+	if err != nil {
+		return err
+	}
+
+	a.template = tmpl
+
+	return nil
+}
+
+// overwrite replaces the contents of dst with the contents of src.
+func (a *App) overwrite(src, dst string) error {
+	se, err := fileEntryMap.Get(src)
 	if err != nil {
 		return err
 	}
@@ -333,6 +391,6 @@ func (a *App) Overwrite(src, dst string) error {
 		return err
 	}
 
-	a.Logger.Info().Str("name", dst).Msg("Updated")
+	a.logger.Info().Str("name", dst).Msg("Updated")
 	return nil
 }

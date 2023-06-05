@@ -4,199 +4,160 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/gleamsoda/donut"
 )
 
+var file string
+var debug bool
+
 func main() {
-	if err := NewRootCmd().Execute(); err != nil {
+	app := donut.NewApp()
+	root := NewCmdRoot(app)
+
+	root.AddCommand(
+		NewCmdInit(app),
+		NewCmdList(app),
+		NewCmdDiff(app),
+		NewCmdMerge(app),
+		NewCmdWhere(app),
+		NewCmdConfig(app),
+		NewCmdApply(app),
+	)
+
+	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-var isDebug bool
-
-func init() {
-	pflag.BoolVarP(&isDebug, "debug", "d", false, "Enable debug log")
-
-	cobra.OnInitialize(func() {
-		if err := donut.InitStore(); err != nil {
-			panic(err)
-		}
-		if err := donut.InitLogger(os.Stdout, isDebug); err != nil {
-			panic(err)
-		}
-	})
-	cobra.OnFinalize(func() {
-		if err := donut.GetStore().Close(); err != nil {
-			panic(err)
-		}
-	})
-}
-
-func NewRootCmd() *cobra.Command {
+func NewCmdRoot(app *donut.App, _ ...donut.Option) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "donut",
 		Version:      donut.GetVersion(),
-		Short:        "Tiny dotfiles management tool written in Go.",
+		Short:        "Tiny dotfiles management tool",
 		SilenceUsage: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if store, err := donut.OpenStore(); err != nil {
+				return err
+			} else {
+				cobra.OnFinalize(func() { store.Close() })
+				app.AddOptions(donut.WithLogger(donut.NewLogger(os.Stdout, debug)), donut.WithStore(store))
+			}
+			return nil
+		},
 	}
 
-	cmd.PersistentFlags().StringP("file", "f", "", "Specify the path to the configuration file")
-
-	cmd.AddCommand(
-		NewInitCmd(),
-		NewListCmd(),
-		NewDiffCmd(),
-		NewMergeCmd(),
-		NewWhereCmd(),
-		NewConfigCmd(),
-		NewApplyCmd(),
-	)
+	cmd.PersistentFlags().StringVarP(&file, "file", "f", "", "Specify the configuration file")
+	cmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Enable debug mode")
 
 	return cmd
 }
 
-func NewInitCmd() *cobra.Command {
-	cmd := &cobra.Command{
+func NewCmdInit(app *donut.App) *cobra.Command {
+	return &cobra.Command{
 		Use:   "init",
 		Short: "Create a default configuration file",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, _ := donut.New(donut.WithLogger(donut.GetLogger()))
-			return d.Init(cmd.Context())
-		},
+		RunE:  run(app),
 	}
-
-	return cmd
 }
 
-func NewListCmd() *cobra.Command {
-	cmd := &cobra.Command{
+func NewCmdList(app *donut.App) *cobra.Command {
+	return &cobra.Command{
 		Use:   "list",
 		Short: "Display a list of source files",
 		Args:  cobra.NoArgs,
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			f, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(f)
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			return nil
 		},
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
-			if err != nil {
-				return err
-			}
-			return d.List(cmd.Context())
-		},
+		RunE: run(app),
 	}
-
-	return cmd
 }
 
-func NewDiffCmd() *cobra.Command {
-	cmd := &cobra.Command{
+func NewCmdDiff(app *donut.App) *cobra.Command {
+	return &cobra.Command{
 		Use:   "diff",
 		Short: "Display a list of differences between source and destination files",
 		Args:  cobra.NoArgs,
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			f, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(f)
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			return nil
 		},
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithStore(donut.GetStore()), donut.WithLogger(donut.GetLogger()), donut.WithLogger(donut.GetLogger()))
-			if err != nil {
-				return err
-			}
-			return d.Diff(cmd.Context())
-		},
+		RunE: run(app),
 	}
-
-	return cmd
 }
 
-func NewMergeCmd() *cobra.Command {
-	cmd := &cobra.Command{
+func NewCmdMerge(app *donut.App) *cobra.Command {
+	return &cobra.Command{
 		Use:   "merge",
 		Short: "Merge the source file into the destination file",
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			f, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(f)
+		Args:  cobra.NoArgs,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
-			if err != nil {
-				return err
-			}
-			return d.Merge(cmd.Context())
-		},
-		Args: cobra.NoArgs,
+		RunE: run(app),
 	}
-
-	return cmd
 }
 
-func NewWhereCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "where",
-		Short: "Display the location of the source or destination directory",
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			f, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(f)
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
-			if err != nil {
-				return err
-			}
-			return d.Where(cmd.Context(), args[0])
-		},
+func NewCmdWhere(app *donut.App) *cobra.Command {
+	return &cobra.Command{
+		Use:       "where",
+		Short:     "Display the location of the source or destination directory",
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		ValidArgs: []string{"source", "destination", "config"},
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			return nil
+		},
+		RunE: run(app),
 	}
-
-	return cmd
 }
 
-func NewConfigCmd() *cobra.Command {
-	cmd := &cobra.Command{
+func NewCmdConfig(app *donut.App) *cobra.Command {
+	return &cobra.Command{
 		Use:   "config",
 		Short: "Edit the configuration file",
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			f, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(f)
+		Args:  cobra.NoArgs,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithLogger(donut.GetLogger()))
-			if err != nil {
-				return err
-			}
-			return d.ConfigEdit(cmd.Context())
-		},
+		RunE: run(app),
 	}
-
-	return cmd
 }
 
-func NewApplyCmd() *cobra.Command {
+func NewCmdApply(app *donut.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Apply the content of the source file to the destination file",
 		Args:  cobra.NoArgs,
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			f, _ := cmd.Flags().GetString("file")
-			return donut.InitConfig(f)
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := donut.New(donut.WithConfig(donut.GetConfig()), donut.WithStore(donut.GetStore()), donut.WithLogger(donut.GetLogger()))
-			if err != nil {
-				return err
-			}
-			o, _ := cmd.Flags().GetBool("overwrite")
-			return d.Apply(cmd.Context(), o)
-		},
+		RunE: run(app),
 	}
 
 	cmd.Flags().BoolP("overwrite", "o", false, "Overwrite the destination file with the source file")
 
 	return cmd
 }
+
+func run(app *donut.App) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		return app.Run(cmd.Context(), cmd.Name(), args, cmd.Flags())
+	}
+}
+
+// func chain(funcs ...func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
+// 	return func(cmd *cobra.Command, args []string) error {
+// 		for _, f := range funcs {
+// 			if err := f(cmd, args); err != nil {
+// 				return err
+// 			}
+// 		}
+// 		return nil
+// 	}
+// }

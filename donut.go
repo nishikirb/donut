@@ -56,6 +56,7 @@ func NewApp(opts ...Option) *App {
 	app.handle("where", app.where)
 	app.handle("config", app.configEdit)
 	app.handle("apply", app.apply)
+	app.handle("clean", app.clean)
 
 	return app
 }
@@ -328,6 +329,16 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 	}
 
 	if err := eg.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *App) clean(ctx context.Context, _ []string, flags *pflag.FlagSet) error {
+	if err := a.store.Close(); err != nil {
+		return err
+	}
+	if err := os.Remove(defaultDBFile()); err != nil {
 		return err
 	}
 	return nil

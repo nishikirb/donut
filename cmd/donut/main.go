@@ -23,6 +23,7 @@ func main() {
 		NewCmdWhere(app),
 		NewCmdConfig(app),
 		NewCmdApply(app),
+		NewCmdClean(app),
 	)
 
 	if err := root.Execute(); err != nil {
@@ -143,6 +144,19 @@ func NewCmdApply(app *donut.App) *cobra.Command {
 	cmd.Flags().BoolP("overwrite", "o", false, "Overwrite the destination file with the source file")
 
 	return cmd
+}
+
+func NewCmdClean(app *donut.App) *cobra.Command {
+	return &cobra.Command{
+		Use:   "clean",
+		Short: "Clean the state file of this app",
+		Args:  cobra.NoArgs,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			return nil
+		},
+		RunE: run(app),
+	}
 }
 
 func run(app *donut.App) func(cmd *cobra.Command, args []string) error {

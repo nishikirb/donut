@@ -9,7 +9,7 @@ import (
 )
 
 var file string
-var debug bool
+var verbose bool
 
 func main() {
 	app := donut.NewApp()
@@ -42,14 +42,14 @@ func NewCmdRoot(app *donut.App, _ ...donut.Option) *cobra.Command {
 				return err
 			} else {
 				cobra.OnFinalize(func() { store.Close() })
-				app.AddOptions(donut.WithLogger(donut.NewLogger(os.Stdout, debug)), donut.WithStore(store))
+				app.AddOptions(donut.WithLogger(donut.NewLogger(os.Stdout, verbose)), donut.WithStore(store))
 			}
 			return nil
 		},
 	}
 
 	cmd.PersistentFlags().StringVarP(&file, "file", "f", "", "Specify the configuration file")
-	cmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Enable debug mode")
+	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 
 	return cmd
 }

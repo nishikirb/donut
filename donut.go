@@ -109,9 +109,7 @@ func (a *App) init(_ context.Context, _ []string, _ *pflag.FlagSet) error {
 }
 
 func (a *App) list(_ context.Context, _ []string, _ *pflag.FlagSet) error {
-	mapper, err := NewPathMapperBuilder(
-		a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...),
-	).Build()
+	mapper, err := NewPathMapper(a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...))
 	if err != nil {
 		return err
 	}
@@ -123,9 +121,7 @@ func (a *App) list(_ context.Context, _ []string, _ *pflag.FlagSet) error {
 }
 
 func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
-	mapper, err := NewPathMapperBuilder(
-		a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...),
-	).Build()
+	mapper, err := NewPathMapper(a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...))
 	if err != nil {
 		return err
 	}
@@ -190,9 +186,7 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 }
 
 func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
-	mapper, err := NewPathMapperBuilder(
-		a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...),
-	).Build()
+	mapper, err := NewPathMapper(a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...))
 	if err != nil {
 		return err
 	}
@@ -258,9 +252,7 @@ func (a *App) configEdit(_ context.Context, _ []string, _ *pflag.FlagSet) error 
 func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error {
 	overwrite, _ := flags.GetBool("overwrite")
 
-	mapper, err := NewPathMapperBuilder(
-		a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...),
-	).Build()
+	mapper, err := NewPathMapper(a.config.Source, a.config.Destination, WithExcludes(a.config.Excludes...))
 	if err != nil {
 		return err
 	}

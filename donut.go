@@ -141,11 +141,11 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 			case <-ectx.Done():
 				return ectx.Err()
 			default:
-				ss, err := fileEntryMap.GetSum(pm.Source)
+				ss, err := fileEntryCache.GetSum(pm.Source)
 				if err != nil {
 					return err
 				}
-				ds, err := fileEntryMap.GetSum(pm.Destination)
+				ds, err := fileEntryCache.GetSum(pm.Destination)
 				if err != nil {
 					return err
 				}
@@ -199,11 +199,11 @@ func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 
 	mergeCmdName := a.config.Merge[0]
 	for _, pm := range mapper.Mapping {
-		ss, err := fileEntryMap.GetSum(pm.Source)
+		ss, err := fileEntryCache.GetSum(pm.Source)
 		if err != nil {
 			return err
 		}
-		ds, err := fileEntryMap.GetSum(pm.Destination)
+		ds, err := fileEntryCache.GetSum(pm.Destination)
 		if err != nil {
 			return err
 		}
@@ -274,11 +274,11 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 			case <-ectx.Done():
 				return ectx.Err()
 			default:
-				ss, err := fileEntryMap.GetSum(pm.Source)
+				ss, err := fileEntryCache.GetSum(pm.Source)
 				if err != nil {
 					return err
 				}
-				ds, err := fileEntryMap.GetSum(pm.Destination)
+				ds, err := fileEntryCache.GetSum(pm.Destination)
 				if err != nil {
 					return err
 				}
@@ -315,7 +315,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 					return err
 				}
 
-				de, err := fileEntryMap.Reload(pm.Destination)
+				de, err := fileEntryCache.Reload(pm.Destination)
 				if err != nil {
 					return err
 				}
@@ -390,7 +390,7 @@ func (a *App) createTemplates() error {
 
 // overwrite replaces the contents of dst with the contents of src.
 func (a *App) overwrite(src, dst string) error {
-	se, err := fileEntryMap.Get(src)
+	se, err := fileEntryCache.Get(src)
 	if err != nil {
 		return err
 	}

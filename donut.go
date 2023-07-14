@@ -12,7 +12,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/google/renameio/v2"
 	"github.com/rs/zerolog"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -26,6 +25,7 @@ type App struct {
 	config     *Config
 	store      *Store
 	logger     zerolog.Logger
+	executor   *Executor
 	template   *template.Template
 	in         io.Reader
 	out        io.Writer
@@ -35,18 +35,20 @@ type App struct {
 type handler func(ctx context.Context, args []string, flags *pflag.FlagSet) error
 type middleware func(handler) handler
 
-type templateData struct {
+type templateParams struct {
 	Source      string
 	Destination string
 }
 
 func NewApp(opts ...Option) *App {
+	l := NewLogger(os.Stdout, false)
 	app := &App{
-		in:     os.Stdin,
-		out:    os.Stdout,
-		err:    os.Stderr,
-		logger: NewLogger(os.Stdout, false),
-		opts:   []Option{WithConfigLoader(WithDefault())},
+		in:       os.Stdin,
+		out:      os.Stdout,
+		err:      os.Stderr,
+		logger:   l,
+		executor: NewExecutor(l),
+		opts:     []Option{WithConfigLoader(WithDefault())},
 	}
 
 	app.handle("init", app.init)
@@ -94,17 +96,16 @@ func (a *App) init(_ context.Context, _ []string, _ *pflag.FlagSet) error {
 	}
 
 	path := defaultConfigFile()
-	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+	if err := a.executor.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return err
 	}
-	a.logger.Info().Str("name", filepath.Dir(path)).Msg("Created")
 
 	v, _ := NewConfig(WithDefault())
-	if err := v.SafeWriteConfigAs(path); err != nil {
+	if err := a.executor.WriteConfig(v, path); err != nil {
 		return err
 	}
 
-	fmt.Fprintln(a.out, "Configuration file created in", path)
+	fmt.Fprintf(a.out, "Created: %s\n", path)
 	return nil
 }
 
@@ -150,14 +151,13 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 				}
 
 				argsBuilder := strings.Builder{}
-				data := templateData(pm)
+				data := templateParams(pm)
 				if err := a.template.ExecuteTemplate(&argsBuilder, "diff", data); err != nil {
 					return err
 				}
 				args := strings.Split(argsBuilder.String(), " ")
 				cmd := exec.CommandContext(ectx, diffCmdName, args...)
-				out, _ := cmd.Output()
-				a.logger.Info().Str("command", diffCmdName).Strs("args", args).Msg("Executed")
+				out, _ := a.executor.Output(cmd)
 				diffCh <- out
 				return nil
 			}
@@ -173,15 +173,13 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 		diff = append(diff, v...)
 	}
 
-	pagerCmdName := a.config.Pager[0]
-	pagerCmdArgs := a.config.Pager[1:]
+	pagerCmdName, pagerCmdArgs := a.config.Pager[0], a.config.Pager[1:]
 	cmd := exec.CommandContext(ctx, pagerCmdName, pagerCmdArgs...)
 	cmd.Stdin = bytes.NewBuffer(diff)
 	cmd.Stdout = a.out
-	if err := cmd.Run(); err != nil {
+	if err := a.executor.Run(cmd); err != nil {
 		return err
 	}
-	a.logger.Info().Str("command", pagerCmdName).Strs("args", pagerCmdArgs).Msg("Executed")
 	return nil
 }
 
@@ -206,7 +204,7 @@ func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 		}
 
 		argsBuilder := strings.Builder{}
-		data := templateData(pm)
+		data := templateParams(pm)
 		if err := a.template.ExecuteTemplate(&argsBuilder, "merge", data); err != nil {
 			return err
 		}
@@ -214,10 +212,9 @@ func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 		cmd := exec.CommandContext(ctx, mergeCmdName, args...)
 		cmd.Stdin = a.in
 		cmd.Stdout = a.out
-		if err := cmd.Run(); err != nil {
+		if err := a.executor.Run(cmd); err != nil {
 			return err
 		}
-		a.logger.Info().Str("command", mergeCmdName).Strs("args", args).Msg("Executed")
 	}
 
 	return nil
@@ -246,7 +243,7 @@ func (a *App) configEdit(_ context.Context, _ []string, _ *pflag.FlagSet) error 
 	cmd := exec.Command(editorCmdName, args...)
 	cmd.Stdin = a.in
 	cmd.Stdout = a.out
-	return cmd.Run()
+	return a.executor.Run(cmd)
 }
 
 func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error {
@@ -299,10 +296,9 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 				// If the directory does not exist, create it
 				// os.MkdirAll will return nil if directory already exists
 				dir := filepath.Dir(pm.Destination)
-				if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+				if err := a.executor.MkdirAll(dir, os.ModePerm); err != nil {
 					return err
 				}
-				a.logger.Info().Str("name", dir).Msg("Created")
 				if err := a.overwrite(pm.Source, pm.Destination); err != nil {
 					return err
 				}
@@ -330,7 +326,7 @@ func (a *App) clean(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 	if err := a.store.Close(); err != nil {
 		return err
 	}
-	if err := os.Remove(defaultDBFile()); err != nil {
+	if err := a.executor.Remove(defaultDBFile()); err != nil {
 		return err
 	}
 	return nil
@@ -354,13 +350,13 @@ func (a *App) applyOptions() error {
 		}
 	}
 
-	if err := a.createTemplates(); err != nil {
+	if err := a.createTemplate(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (a *App) createTemplates() error {
+func (a *App) createTemplate() error {
 	var tmpl = template.New("")
 	var err error
 
@@ -390,10 +386,8 @@ func (a *App) overwrite(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	if err := renameio.WriteFile(dst, sc, os.ModePerm); err != nil {
+	if err := a.executor.Overwrite(dst, sc, os.ModePerm); err != nil {
 		return err
 	}
-
-	a.logger.Info().Str("name", dst).Msg("Updated")
 	return nil
 }

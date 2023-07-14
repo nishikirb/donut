@@ -1,6 +1,7 @@
 package donut
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/viper"
@@ -24,6 +25,20 @@ type Config struct {
 type ConfigOption func(v *viper.Viper) error
 
 var defaultConcurrency = 8
+var UserHomeDir string
+
+func init() {
+	var err error
+	if UserHomeDir, err = os.UserHomeDir(); err != nil {
+		panic(err)
+	}
+}
+
+func SetUserHomeDir(dir string) func() {
+	tmp := UserHomeDir
+	UserHomeDir = dir
+	return func() { UserHomeDir = tmp }
+}
 
 func NewConfig(opts ...ConfigOption) (*viper.Viper, error) {
 	v := viper.NewWithOptions(viper.KeyDelimiter("::"))

@@ -3,6 +3,7 @@ package donut
 import (
 	"errors"
 	"io"
+	"os"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
@@ -47,6 +48,7 @@ func WithStore(s *Store) Option {
 func WithLogger(l zerolog.Logger) Option {
 	return func(a *App) error {
 		a.logger = l
+		a.executor.SetLogger(l)
 		return nil
 	}
 }
@@ -95,3 +97,23 @@ func validateConfig(c *Config) error {
 	}
 	return nil
 }
+
+// isDir checks path is exists and is directory
+func isDir(path string) error {
+	if path == "" {
+		return errors.New("not defined")
+	} else if f, err := os.Stat(path); err != nil {
+		return err
+	} else if !f.IsDir() {
+		return errors.New("not directory")
+	}
+	return nil
+}
+
+// abs returns if path is relative, joins baseDir. if path is absolute, clean the path.
+// func abs(path, baseDir string) string {
+// 	if filepath.IsAbs(path) {
+// 		return filepath.Clean(path)
+// 	}
+// 	return filepath.Join(baseDir, path)
+// }

@@ -34,7 +34,7 @@ var (
 
 // Open opens a BoltDB database.
 func Open(file string) (*BoltStore, error) {
-	if err := os.MkdirAll(file, os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 		return nil, err
 	}
 

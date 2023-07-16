@@ -23,7 +23,7 @@ func createTemplateMap(tmap map[string][]string) error {
 
 func createTemplate(name string, args ...string) error {
 	joined := strings.Join(args, " ")
-	if _, err := tmpl.New("diff").Parse(joined); err != nil {
+	if _, err := tmpl.New(name).Parse(joined); err != nil {
 		return err
 	}
 	return nil

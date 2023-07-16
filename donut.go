@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -25,18 +24,12 @@ type App struct {
 	commands map[string]handler
 	opts     []Option
 	config   *config.Config
-	template *template.Template
 	in       io.Reader
 	out      io.Writer
 	err      io.Writer
 }
 
 type handler func(ctx context.Context, args []string, flags *pflag.FlagSet) error
-
-type templateParams struct {
-	Source      string
-	Destination string
-}
 
 func NewApp(opts ...Option) *App {
 	cfg, _ := config.New(config.WithDefault())
@@ -71,6 +64,13 @@ func (a *App) Run(ctx context.Context, command string, args []string, flags *pfl
 	}
 
 	if err := a.applyOptions(); err != nil {
+		return err
+	}
+
+	if err := createTemplateMap(map[string][]string{
+		"diff":  a.config.Diff[1:],
+		"merge": a.config.Merge[1:],
+	}); err != nil {
 		return err
 	}
 
@@ -144,7 +144,7 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 
 				argsBuilder := strings.Builder{}
 				data := templateParams(pm)
-				if err := a.template.ExecuteTemplate(&argsBuilder, "diff", data); err != nil {
+				if err := tmpl.ExecuteTemplate(&argsBuilder, "diff", data); err != nil {
 					return err
 				}
 				args := strings.Split(argsBuilder.String(), " ")
@@ -197,7 +197,7 @@ func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 
 		argsBuilder := strings.Builder{}
 		data := templateParams(pm)
-		if err := a.template.ExecuteTemplate(&argsBuilder, "merge", data); err != nil {
+		if err := tmpl.ExecuteTemplate(&argsBuilder, "merge", data); err != nil {
 			return err
 		}
 		args := strings.Split(argsBuilder.String(), " ")
@@ -337,30 +337,6 @@ func (a *App) applyOptions() error {
 			return err
 		}
 	}
-
-	if err := a.createTemplate(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *App) createTemplate() error {
-	var tmpl = template.New("")
-	var err error
-
-	diffArgs := strings.Join(a.config.Diff[1:], " ")
-	tmpl, err = tmpl.New("diff").Parse(diffArgs)
-	if err != nil {
-		return err
-	}
-	mergeArgs := strings.Join(a.config.Merge[1:], " ")
-	tmpl, err = tmpl.New("merge").Parse(mergeArgs)
-	if err != nil {
-		return err
-	}
-
-	a.template = tmpl
-
 	return nil
 }
 

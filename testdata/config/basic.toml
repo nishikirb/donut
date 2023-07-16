@@ -1,0 +1,3 @@
+source = "$HOME/.local/share/donut"
+destination = "$HOME"
+editor = "nvim"

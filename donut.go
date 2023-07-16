@@ -34,10 +34,11 @@ type handler func(ctx context.Context, args []string, flags *pflag.FlagSet) erro
 func NewApp(opts ...Option) *App {
 	cfg, _ := config.New(config.WithDefault())
 	app := &App{
+		opts:   opts,
+		config: cfg,
 		in:     os.Stdin,
 		out:    os.Stdout,
 		err:    os.Stderr,
-		config: cfg,
 	}
 
 	app.handle("init", app.init)
@@ -45,7 +46,7 @@ func NewApp(opts ...Option) *App {
 	app.handle("diff", app.diff)
 	app.handle("merge", app.merge)
 	app.handle("where", app.where)
-	app.handle("config", app.configEdit)
+	app.handle("config", app.editConfig)
 	app.handle("apply", app.apply)
 	app.handle("clean", app.clean)
 
@@ -57,13 +58,22 @@ func (a *App) AddOptions(opts ...Option) *App {
 	return a
 }
 
+func (a *App) ApplyOptions() error {
+	for _, opt := range a.opts {
+		if err := opt(a); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *App) Run(ctx context.Context, command string, args []string, flags *pflag.FlagSet) error {
 	h, ok := a.commands[command]
 	if !ok {
 		return fmt.Errorf("unknown command: %s", command)
 	}
 
-	if err := a.applyOptions(); err != nil {
+	if err := a.ApplyOptions(); err != nil {
 		return err
 	}
 
@@ -228,11 +238,11 @@ func (a *App) where(_ context.Context, args []string, _ *pflag.FlagSet) error {
 	return nil
 }
 
-func (a *App) configEdit(_ context.Context, _ []string, _ *pflag.FlagSet) error {
+func (a *App) editConfig(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 	editorCmdName := a.config.Editor[0]
 	editorCmdArgs := a.config.Editor[1:]
 	args := append(editorCmdArgs, a.config.File)
-	cmd := exec.Command(editorCmdName, args...)
+	cmd := exec.CommandContext(ctx, editorCmdName, args...)
 	cmd.Stdin = a.in
 	cmd.Stdout = a.out
 	return system.Run(cmd)
@@ -329,15 +339,6 @@ func (a *App) handle(name string, h handler) {
 		a.commands = make(map[string]handler)
 	}
 	a.commands[name] = h
-}
-
-func (a *App) applyOptions() error {
-	for _, opt := range a.opts {
-		if err := opt(a); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // overwrite replaces the contents of dst with the contents of src.

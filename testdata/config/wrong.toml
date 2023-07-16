@@ -1,0 +1,2 @@
+source = "$HOME/.local/share/donut"
+destination = "$HOME/not_exists"

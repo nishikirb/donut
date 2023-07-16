@@ -3,6 +3,7 @@ module github.com/gleamsoda/donut
 go 1.20
 
 require (
+	github.com/google/go-cmp v0.5.9
 	github.com/google/renameio/v2 v2.0.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pelletier/go-toml/v2 v2.0.7

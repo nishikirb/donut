@@ -126,3 +126,11 @@ func defaultSourceDir() string {
 func defaultStateDir() string {
 	return filepath.Join(UserHomeDir, ".local", "state", appName)
 }
+
+const FileEntryBucket = "file_entries"
+
+var Buckets = []string{FileEntryBucket}
+
+func DefaultDBFile() string {
+	return filepath.Join(defaultStateDir(), "donut.db")
+}

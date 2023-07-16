@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 )
 
@@ -31,24 +30,6 @@ func WithConfigLoader(opts ...ConfigOption) Option {
 			return err
 		}
 		a.config = &c
-		return nil
-	}
-}
-
-func WithStore(s *Store) Option {
-	return func(a *App) error {
-		if s == nil {
-			return errors.New("store cannot be nil")
-		}
-		a.store = s
-		return nil
-	}
-}
-
-func WithLogger(l zerolog.Logger) Option {
-	return func(a *App) error {
-		a.logger = l
-		a.executor.SetLogger(l)
 		return nil
 	}
 }

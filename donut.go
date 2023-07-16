@@ -12,24 +12,21 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/rs/zerolog"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/gleamsoda/donut/store"
 )
 
 type App struct {
-	commands   map[string]handler
-	middleware map[string][]middleware
-	opts       []Option
-	config     *Config
-	store      *Store
-	logger     zerolog.Logger
-	executor   *Executor
-	template   *template.Template
-	in         io.Reader
-	out        io.Writer
-	err        io.Writer
+	commands map[string]handler
+	opts     []Option
+	config   *Config
+	template *template.Template
+	in       io.Reader
+	out      io.Writer
+	err      io.Writer
 }
 
 type handler func(ctx context.Context, args []string, flags *pflag.FlagSet) error
@@ -41,14 +38,11 @@ type templateParams struct {
 }
 
 func NewApp(opts ...Option) *App {
-	l := NewLogger(os.Stdout, false)
 	app := &App{
-		in:       os.Stdin,
-		out:      os.Stdout,
-		err:      os.Stderr,
-		logger:   l,
-		executor: NewExecutor(l),
-		opts:     []Option{WithConfigLoader(WithDefault())},
+		in:   os.Stdin,
+		out:  os.Stdout,
+		err:  os.Stderr,
+		opts: []Option{WithConfigLoader(WithDefault())},
 	}
 
 	app.handle("init", app.init)
@@ -74,10 +68,6 @@ func (a *App) Run(ctx context.Context, command string, args []string, flags *pfl
 		return fmt.Errorf("unknown command: %s", command)
 	}
 
-	for _, mw := range a.middleware[command] {
-		h = mw(h)
-	}
-
 	if err := a.applyOptions(); err != nil {
 		return err
 	}
@@ -96,12 +86,12 @@ func (a *App) init(_ context.Context, _ []string, _ *pflag.FlagSet) error {
 	}
 
 	path := defaultConfigFile()
-	if err := a.executor.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+	if err := MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return err
 	}
 
 	v, _ := NewConfig(WithDefault())
-	if err := a.executor.WriteConfig(v, path); err != nil {
+	if err := WriteConfig(v, path); err != nil {
 		return err
 	}
 
@@ -157,7 +147,7 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 				}
 				args := strings.Split(argsBuilder.String(), " ")
 				cmd := exec.CommandContext(ectx, diffCmdName, args...)
-				out, _ := a.executor.Output(cmd)
+				out, _ := Output(cmd)
 				diffCh <- out
 				return nil
 			}
@@ -177,7 +167,7 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 	cmd := exec.CommandContext(ctx, pagerCmdName, pagerCmdArgs...)
 	cmd.Stdin = bytes.NewBuffer(diff)
 	cmd.Stdout = a.out
-	if err := a.executor.Run(cmd); err != nil {
+	if err := Run(cmd); err != nil {
 		return err
 	}
 	return nil
@@ -212,7 +202,7 @@ func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 		cmd := exec.CommandContext(ctx, mergeCmdName, args...)
 		cmd.Stdin = a.in
 		cmd.Stdout = a.out
-		if err := a.executor.Run(cmd); err != nil {
+		if err := Run(cmd); err != nil {
 			return err
 		}
 	}
@@ -243,7 +233,7 @@ func (a *App) configEdit(_ context.Context, _ []string, _ *pflag.FlagSet) error 
 	cmd := exec.Command(editorCmdName, args...)
 	cmd.Stdin = a.in
 	cmd.Stdout = a.out
-	return a.executor.Run(cmd)
+	return Run(cmd)
 }
 
 func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error {
@@ -276,7 +266,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 				}
 
 				var be *FileEntry
-				if err := a.store.Get(FileEntryBucket, pm.Destination, &be); err != nil {
+				if err := store.Get(FileEntryBucket, pm.Destination, &be); err != nil {
 					return err
 				}
 				bs, err := be.GetSum()
@@ -296,7 +286,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 				// If the directory does not exist, create it
 				// os.MkdirAll will return nil if directory already exists
 				dir := filepath.Dir(pm.Destination)
-				if err := a.executor.MkdirAll(dir, os.ModePerm); err != nil {
+				if err := MkdirAll(dir, os.ModePerm); err != nil {
 					return err
 				}
 				if err := a.overwrite(pm.Source, pm.Destination); err != nil {
@@ -307,7 +297,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 				if err != nil {
 					return err
 				}
-				if err := a.store.Set(FileEntryBucket, pm.Destination, de); err != nil {
+				if err := store.Set(FileEntryBucket, pm.Destination, de); err != nil {
 					return err
 				}
 				fmt.Fprintf(a.out, "Applied: %s from %s\n", pm.Destination, pm.Source)
@@ -323,10 +313,10 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 }
 
 func (a *App) clean(ctx context.Context, _ []string, flags *pflag.FlagSet) error {
-	if err := a.store.Close(); err != nil {
+	if err := store.Close(); err != nil {
 		return err
 	}
-	if err := a.executor.Remove(defaultDBFile()); err != nil {
+	if err := Remove(DefaultDBFile()); err != nil {
 		return err
 	}
 	return nil
@@ -337,10 +327,6 @@ func (a *App) handle(name string, h handler, ms ...middleware) {
 		a.commands = make(map[string]handler)
 	}
 	a.commands[name] = h
-	if a.middleware == nil {
-		a.middleware = make(map[string][]middleware)
-	}
-	a.middleware[name] = ms
 }
 
 func (a *App) applyOptions() error {
@@ -386,7 +372,7 @@ func (a *App) overwrite(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	if err := a.executor.Overwrite(dst, sc, os.ModePerm); err != nil {
+	if err := Overwrite(dst, sc, os.ModePerm); err != nil {
 		return err
 	}
 	return nil

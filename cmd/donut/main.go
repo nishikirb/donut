@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gleamsoda/donut"
+	"github.com/gleamsoda/donut/logger"
+	"github.com/gleamsoda/donut/store"
 )
 
 var file string
@@ -38,11 +40,11 @@ func NewCmdRoot(app *donut.App, _ ...donut.Option) *cobra.Command {
 		Short:        "Tiny dotfiles management tool",
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if store, err := donut.OpenStore(); err != nil {
+			if err := store.Init(donut.DefaultDBFile(), donut.Buckets); err != nil {
 				return err
 			} else {
+				logger.Init(os.Stdout, verbose)
 				cobra.OnFinalize(func() { store.Close() })
-				app.AddOptions(donut.WithLogger(donut.NewLogger(os.Stdout, verbose)), donut.WithStore(store))
 			}
 			return nil
 		},

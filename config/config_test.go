@@ -114,7 +114,7 @@ func TestNew(t *testing.T) {
 			tt.assertion(t, err)
 			if err == nil {
 				opts := cmp.Options{
-					cmpopts.IgnoreFields(Config{}, []string{"Concurrency", "File"}...),
+					cmpopts.IgnoreFields(Config{}, "Concurrency", "File"),
 				}
 				if diff := cmp.Diff(tt.want, got, opts); diff != "" {
 					t.Errorf("mismatch (-want +got):\n%s", diff)

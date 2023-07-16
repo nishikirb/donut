@@ -3,11 +3,14 @@ package store
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/exp/slices"
+
+	"github.com/gleamsoda/donut/config"
 )
 
 // // Store is an interface for storing and retrieving data.
@@ -21,13 +24,16 @@ type BoltStore struct {
 	db *bolt.DB
 }
 
+const FileEntryBucket = "file_entries"
+
 var (
-	store = &BoltStore{}
-	once  sync.Once
+	store   = &BoltStore{}
+	once    sync.Once
+	buckets = []string{FileEntryBucket}
 )
 
 // Open opens a BoltDB database.
-func Open(file string, buckets []string) (*BoltStore, error) {
+func Open(file string) (*BoltStore, error) {
 	if err := os.MkdirAll(file, os.ModePerm); err != nil {
 		return nil, err
 	}
@@ -53,10 +59,10 @@ func Open(file string, buckets []string) (*BoltStore, error) {
 }
 
 // Init initializes the store.
-func Init(file string, buckets []string) error {
+func Init(file string) error {
 	var err error
 	once.Do(func() {
-		store, err = Open(file, buckets)
+		store, err = Open(file)
 	})
 	return err
 }
@@ -104,4 +110,8 @@ func (s *BoltStore) Set(bucket string, key string, value any) error {
 // Close closes the store.
 func Close() error {
 	return store.db.Close()
+}
+
+func DefaultDBFile() string {
+	return filepath.Join(config.DefaultStateDir(), "donut.db")
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gleamsoda/donut"
+	"github.com/gleamsoda/donut/config"
 	"github.com/gleamsoda/donut/logger"
 	"github.com/gleamsoda/donut/store"
 )
@@ -40,7 +41,7 @@ func NewCmdRoot(app *donut.App, _ ...donut.Option) *cobra.Command {
 		Short:        "Tiny dotfiles management tool",
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if err := store.Init(donut.DefaultDBFile(), donut.Buckets); err != nil {
+			if err := store.Init(store.DefaultDBFile()); err != nil {
 				return err
 			} else {
 				logger.Init(os.Stdout, verbose)
@@ -71,7 +72,7 @@ func NewCmdList(app *donut.App) *cobra.Command {
 		Short: "Display a list of source files",
 		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			app.AddOptions(donut.WithConfigLoader(config.WithPath(file)...))
 			return nil
 		},
 		RunE: run(app),
@@ -84,7 +85,7 @@ func NewCmdDiff(app *donut.App) *cobra.Command {
 		Short: "Display a list of differences between source and destination files",
 		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			app.AddOptions(donut.WithConfigLoader(config.WithPath(file)...))
 			return nil
 		},
 		RunE: run(app),
@@ -97,7 +98,7 @@ func NewCmdMerge(app *donut.App) *cobra.Command {
 		Short: "Merge the source file into the destination file",
 		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			app.AddOptions(donut.WithConfigLoader(config.WithPath(file)...))
 			return nil
 		},
 		RunE: run(app),
@@ -111,7 +112,7 @@ func NewCmdWhere(app *donut.App) *cobra.Command {
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		ValidArgs: []string{"source", "destination", "config"},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			app.AddOptions(donut.WithConfigLoader(config.WithPath(file)...))
 			return nil
 		},
 		RunE: run(app),
@@ -124,7 +125,7 @@ func NewCmdConfig(app *donut.App) *cobra.Command {
 		Short: "Edit the configuration file",
 		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			app.AddOptions(donut.WithConfigLoader(config.WithPath(file)...))
 			return nil
 		},
 		RunE: run(app),
@@ -137,7 +138,7 @@ func NewCmdApply(app *donut.App) *cobra.Command {
 		Short: "Apply the content of the source file to the destination file",
 		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			app.AddOptions(donut.WithConfigLoader(config.WithPath(file)...))
 			return nil
 		},
 		RunE: run(app),
@@ -154,7 +155,7 @@ func NewCmdClean(app *donut.App) *cobra.Command {
 		Short: "Clean the state file of this app",
 		Args:  cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			app.AddOptions(donut.WithConfigLoader(donut.WithPath(file)...))
+			app.AddOptions(donut.WithConfigLoader(config.WithPath(file)...))
 			return nil
 		},
 		RunE: run(app),

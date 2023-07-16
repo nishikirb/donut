@@ -1,35 +1,27 @@
 package donut
 
 import (
-	"errors"
 	"io"
-	"os"
 
-	"github.com/spf13/viper"
+	"github.com/gleamsoda/donut/config"
 )
 
 type Option func(*App) error
 
-func WithConfig(v *viper.Viper) Option {
+func WithConfig(c *config.Config) Option {
 	return func(a *App) error {
-		var c Config
-		if err := decodeConfig(v, &c); err != nil {
-			return err
-		}
-		a.config = &c
+		a.config = c
 		return nil
 	}
 }
 
-func WithConfigLoader(opts ...ConfigOption) Option {
+func WithConfigLoader(opts ...config.ConfigOption) Option {
 	return func(a *App) error {
-		var c Config
-		if v, err := NewConfig(opts...); err != nil {
+		if c, err := config.New(opts...); err != nil {
 			return err
-		} else if err := decodeConfig(v, &c); err != nil {
-			return err
+		} else {
+			a.config = c
 		}
-		a.config = &c
 		return nil
 	}
 }
@@ -54,47 +46,3 @@ func WithErr(r io.Writer) Option {
 		return nil
 	}
 }
-
-func decodeConfig(v *viper.Viper, c *Config) error {
-	if v == nil {
-		return errors.New("config cannot be nil")
-	}
-	if err := v.Unmarshal(&c, viper.DecodeHook(defaultDecodeHookFunc)); err != nil {
-		return err
-	}
-	if err := validateConfig(c); err != nil {
-		return err
-	}
-	c.Concurrency = defaultConcurrency
-	c.File = v.ConfigFileUsed()
-	return nil
-}
-
-func validateConfig(c *Config) error {
-	for _, path := range []string{c.Source, c.Destination} {
-		if err := isDir(path); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// isDir checks path is exists and is directory
-func isDir(path string) error {
-	if path == "" {
-		return errors.New("not defined")
-	} else if f, err := os.Stat(path); err != nil {
-		return err
-	} else if !f.IsDir() {
-		return errors.New("not directory")
-	}
-	return nil
-}
-
-// abs returns if path is relative, joins baseDir. if path is absolute, clean the path.
-// func abs(path, baseDir string) string {
-// 	if filepath.IsAbs(path) {
-// 		return filepath.Clean(path)
-// 	}
-// 	return filepath.Join(baseDir, path)
-// }

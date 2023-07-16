@@ -16,13 +16,15 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/gleamsoda/donut/config"
 	"github.com/gleamsoda/donut/store"
+	"github.com/gleamsoda/donut/system"
 )
 
 type App struct {
 	commands map[string]handler
 	opts     []Option
-	config   *Config
+	config   *config.Config
 	template *template.Template
 	in       io.Reader
 	out      io.Writer
@@ -30,7 +32,6 @@ type App struct {
 }
 
 type handler func(ctx context.Context, args []string, flags *pflag.FlagSet) error
-type middleware func(handler) handler
 
 type templateParams struct {
 	Source      string
@@ -38,11 +39,12 @@ type templateParams struct {
 }
 
 func NewApp(opts ...Option) *App {
+	cfg, _ := config.New(config.WithDefault())
 	app := &App{
-		in:   os.Stdin,
-		out:  os.Stdout,
-		err:  os.Stderr,
-		opts: []Option{WithConfigLoader(WithDefault())},
+		in:     os.Stdin,
+		out:    os.Stdout,
+		err:    os.Stderr,
+		config: cfg,
 	}
 
 	app.handle("init", app.init)
@@ -78,20 +80,20 @@ func (a *App) Run(ctx context.Context, command string, args []string, flags *pfl
 func (a *App) init(_ context.Context, _ []string, _ *pflag.FlagSet) error {
 	// check config file exists in default path
 	// if exists, no need to init
-	_, err := NewConfig(WithPath("")...)
+	_, err := config.New(config.WithPath("")...)
 	if err == nil {
 		return errors.New("config file already exists. no need to init")
 	} else if !errors.As(err, &viper.ConfigFileNotFoundError{}) {
 		return fmt.Errorf("config file already exists, but error: %w", err)
 	}
 
-	path := defaultConfigFile()
-	if err := MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+	path := config.DefaultConfigFile()
+	if err := system.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return err
 	}
 
-	v, _ := NewConfig(WithDefault())
-	if err := WriteConfig(v, path); err != nil {
+	v, _ := config.NewViper(config.WithDefault())
+	if err := system.WriteConfig(v, path); err != nil {
 		return err
 	}
 
@@ -147,7 +149,7 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 				}
 				args := strings.Split(argsBuilder.String(), " ")
 				cmd := exec.CommandContext(ectx, diffCmdName, args...)
-				out, _ := Output(cmd)
+				out, _ := system.Output(cmd)
 				diffCh <- out
 				return nil
 			}
@@ -167,7 +169,7 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 	cmd := exec.CommandContext(ctx, pagerCmdName, pagerCmdArgs...)
 	cmd.Stdin = bytes.NewBuffer(diff)
 	cmd.Stdout = a.out
-	if err := Run(cmd); err != nil {
+	if err := system.Run(cmd); err != nil {
 		return err
 	}
 	return nil
@@ -202,7 +204,7 @@ func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 		cmd := exec.CommandContext(ctx, mergeCmdName, args...)
 		cmd.Stdin = a.in
 		cmd.Stdout = a.out
-		if err := Run(cmd); err != nil {
+		if err := system.Run(cmd); err != nil {
 			return err
 		}
 	}
@@ -233,7 +235,7 @@ func (a *App) configEdit(_ context.Context, _ []string, _ *pflag.FlagSet) error 
 	cmd := exec.Command(editorCmdName, args...)
 	cmd.Stdin = a.in
 	cmd.Stdout = a.out
-	return Run(cmd)
+	return system.Run(cmd)
 }
 
 func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error {
@@ -266,7 +268,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 				}
 
 				var be *FileEntry
-				if err := store.Get(FileEntryBucket, pm.Destination, &be); err != nil {
+				if err := store.Get(store.FileEntryBucket, pm.Destination, &be); err != nil {
 					return err
 				}
 				bs, err := be.GetSum()
@@ -286,7 +288,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 				// If the directory does not exist, create it
 				// os.MkdirAll will return nil if directory already exists
 				dir := filepath.Dir(pm.Destination)
-				if err := MkdirAll(dir, os.ModePerm); err != nil {
+				if err := system.MkdirAll(dir, os.ModePerm); err != nil {
 					return err
 				}
 				if err := a.overwrite(pm.Source, pm.Destination); err != nil {
@@ -297,7 +299,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 				if err != nil {
 					return err
 				}
-				if err := store.Set(FileEntryBucket, pm.Destination, de); err != nil {
+				if err := store.Set(store.FileEntryBucket, pm.Destination, de); err != nil {
 					return err
 				}
 				fmt.Fprintf(a.out, "Applied: %s from %s\n", pm.Destination, pm.Source)
@@ -316,13 +318,13 @@ func (a *App) clean(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 	if err := store.Close(); err != nil {
 		return err
 	}
-	if err := Remove(DefaultDBFile()); err != nil {
+	if err := system.Remove(store.DefaultDBFile()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (a *App) handle(name string, h handler, ms ...middleware) {
+func (a *App) handle(name string, h handler) {
 	if a.commands == nil {
 		a.commands = make(map[string]handler)
 	}
@@ -372,7 +374,7 @@ func (a *App) overwrite(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	if err := Overwrite(dst, sc, os.ModePerm); err != nil {
+	if err := system.Overwrite(dst, sc, os.ModePerm); err != nil {
 		return err
 	}
 	return nil

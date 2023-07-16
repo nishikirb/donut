@@ -1,4 +1,4 @@
-package donut
+package config
 
 import (
 	"reflect"
@@ -6,12 +6,14 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/gleamsoda/donut/tutil"
 )
 
-func Test_expandEnvFunc(t *testing.T) {
+func Test_ExpandEnvFunc(t *testing.T) {
 	dir := t.TempDir()
-	SetDirEnv(t, dir)
-	f := expandEnvFunc()
+	tutil.SetDirEnv(t, dir)
+	f := ExpandEnvFunc()
 
 	type args struct {
 		from reflect.Value

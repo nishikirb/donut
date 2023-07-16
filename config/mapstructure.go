@@ -1,4 +1,4 @@
-package donut
+package config
 
 import (
 	"os"
@@ -9,13 +9,13 @@ import (
 )
 
 var defaultDecodeHookFunc = mapstructure.ComposeDecodeHookFunc(
-	expandEnvFunc(),
+	ExpandEnvFunc(),
 	mapstructure.StringToTimeDurationHookFunc(),
 	mapstructure.StringToSliceHookFunc(","),
 )
 
 // mapstructure's DecodeHookFunc that reads environment variables
-func expandEnvFunc() mapstructure.DecodeHookFunc {
+func ExpandEnvFunc() mapstructure.DecodeHookFunc {
 	return func(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
 		if f != reflect.String {
 			return data, nil

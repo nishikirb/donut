@@ -47,7 +47,7 @@ donut merge // merge the changes with merge tool
 
 ## Configuration
 
-The configuration file can be placed in the following locations:
+The configuration file `donut.toml` can be placed in the following locations:
 
 - `$XDG_CONFIG_HOME`
 - `$XDG_CONFIG_HOME/donut`
@@ -56,12 +56,21 @@ The configuration file can be placed in the following locations:
 
 ### Configuration Options
 
-- `destination`: The destination directory where the files will be applied. (default: `"$HOME"`).
-- `source`: The source directory containing the files that will be managed. (default: `"$HOME/.local/share/donut"`).
-- `editor`: The command or executable to be used as the text editor. (default: `["vim"]`).
-- `pager`: The command or executable to be used as the pager for viewing file differences. (default: `["less", "-R"]`)
-- `diff`: The command or executable to be used for displaying differences between files. (default: `["diff", "-upN", "{{.Destination}}", "{{.Source}}"]`).
-- `merge`: The command or executable to be used for merging file changes. (default: `["vimdiff", "{{.Destination}}", "{{.Source}}"]`).
-- `excludes`: A list of files or directories to be excluded from management. (default: `[]`).
+```toml
+# 'source' is the source directory containing the files that will be managed.
+source = '$HOME/.local/share/donut'
+# 'destination' is the directory where the files will be applied.
+destination = '$HOME'
+# 'editor' is the command or executable to be used as the text editor.
+editor = ["vim"]
+# 'pager' is the command or executable to be used as the pager for viewing file differences.
+pager = ["less", "-R"]
+# 'diff' is the command or executable to be used for displaying differences between files.
+diff = ["diff", "-upN", "{{.Destination}}", "{{.Source}}"]
+# 'merge' is the command or executable to be used for merging file changes.
+merge = ["nvim", "-d", "{{.Destination}}", "{{.Source}}"]
+# 'excludes' is a list of files or directories to be excluded from management.
+excludes = []
+```
 
 You can modify these configuration options according to your needs in the configuration file. Ensure that the paths and commands are correctly set to match your system.

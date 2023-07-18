@@ -287,7 +287,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 				}
 
 				// skip if the following conditions are met
-				// 1. exist in store
+				// 1. exists in store
 				// 2. checksum is equal to destination
 				// 3. overwrite is false
 				if bs != nil && !bytes.Equal(bs, ds) && !overwrite {
@@ -295,7 +295,7 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 					return nil
 				}
 
-				// If the directory does not exist, create it
+				// If the directory does not exists, create it
 				// os.MkdirAll will return nil if directory already exists
 				dir := filepath.Dir(pm.Destination)
 				if err := system.MkdirAll(dir, os.ModePerm); err != nil {

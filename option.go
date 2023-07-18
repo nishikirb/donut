@@ -33,16 +33,16 @@ func WithIn(r io.Reader) Option {
 	}
 }
 
-func WithOut(r io.Writer) Option {
+func WithOut(w io.Writer) Option {
 	return func(a *App) error {
-		a.out = r
+		a.out = w
 		return nil
 	}
 }
 
-func WithErr(r io.Writer) Option {
+func WithErr(w io.Writer) Option {
 	return func(a *App) error {
-		a.err = r
+		a.err = w
 		return nil
 	}
 }

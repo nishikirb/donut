@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/gleamsoda/donut/config"
-	"github.com/gleamsoda/donut/tutil"
+	"github.com/gleamsoda/donut/test/helper"
 )
 
 func TestNewApp(t *testing.T) {
-	home, _, _, _ := tutil.CreateBaseDir(t)
-	tutil.SetDirEnv(t, home)
+	home, _, _, _ := helper.CreateBaseDir(t)
+	helper.SetDirEnv(t, home)
 	defer config.SetUserHomeDir(home)()
 
 	stdin := bytes.NewBuffer([]byte(""))
@@ -37,7 +37,7 @@ func TestNewApp(t *testing.T) {
 		},
 		{
 			name:           "OK/WithConfigLoader",
-			opts:           []Option{WithConfigLoader(config.WithFile("./testdata/config/basic.toml"))},
+			opts:           []Option{WithConfigLoader(config.WithFile("./test/testdata/config/basic.toml"))},
 			want:           &App{config: &config.Config{Editor: []string{"nvim"}}},
 			applyAssertion: assert.NoError,
 			assertion: func(t *testing.T, want, got *App) {
@@ -46,7 +46,7 @@ func TestNewApp(t *testing.T) {
 		},
 		{
 			name:           "Error/WithConfigLoader",
-			opts:           []Option{WithConfigLoader(config.WithFile("./testdata/config/broken.toml"))},
+			opts:           []Option{WithConfigLoader(config.WithFile("./test/testdata/config/broken.toml"))},
 			want:           &App{config: nil},
 			applyAssertion: assert.Error,
 			assertion: func(t *testing.T, want, got *App) {

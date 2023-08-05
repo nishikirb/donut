@@ -140,11 +140,11 @@ func (a *App) diff(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 			case <-ectx.Done():
 				return ectx.Err()
 			default:
-				ss, err := fileEntryCache.GetSum(pm.Source)
+				ss, err := entryCache.GetSum(pm.Source)
 				if err != nil {
 					return err
 				}
-				ds, err := fileEntryCache.GetSum(pm.Destination)
+				ds, err := entryCache.GetSum(pm.Destination)
 				if err != nil {
 					return err
 				}
@@ -193,11 +193,11 @@ func (a *App) merge(ctx context.Context, _ []string, _ *pflag.FlagSet) error {
 
 	mergeCmdName := a.config.Merge[0]
 	for _, pm := range mapper.Mapping {
-		ss, err := fileEntryCache.GetSum(pm.Source)
+		ss, err := entryCache.GetSum(pm.Source)
 		if err != nil {
 			return err
 		}
-		ds, err := fileEntryCache.GetSum(pm.Destination)
+		ds, err := entryCache.GetSum(pm.Destination)
 		if err != nil {
 			return err
 		}
@@ -265,11 +265,11 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 			case <-ectx.Done():
 				return ectx.Err()
 			default:
-				ss, err := fileEntryCache.GetSum(pm.Source)
+				ss, err := entryCache.GetSum(pm.Source)
 				if err != nil {
 					return err
 				}
-				ds, err := fileEntryCache.GetSum(pm.Destination)
+				ds, err := entryCache.GetSum(pm.Destination)
 				if err != nil {
 					return err
 				}
@@ -277,8 +277,8 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 					return nil
 				}
 
-				var be *FileEntry
-				if err := store.Get(store.FileEntryBucket, pm.Destination, &be); err != nil {
+				var be *Entry
+				if err := store.Get(store.EntryBucket, pm.Destination, &be); err != nil {
 					return err
 				}
 				bs, err := be.GetSum()
@@ -305,11 +305,11 @@ func (a *App) apply(ctx context.Context, _ []string, flags *pflag.FlagSet) error
 					return err
 				}
 
-				de, err := fileEntryCache.Reload(pm.Destination)
+				de, err := entryCache.Reload(pm.Destination)
 				if err != nil {
 					return err
 				}
-				if err := store.Set(store.FileEntryBucket, pm.Destination, de); err != nil {
+				if err := store.Set(store.EntryBucket, pm.Destination, de); err != nil {
 					return err
 				}
 				fmt.Fprintf(a.out, "Applied: %s from %s\n", pm.Destination, pm.Source)
@@ -343,7 +343,7 @@ func (a *App) handle(name string, h handler) {
 
 // overwrite replaces the contents of dst with the contents of src.
 func (a *App) overwrite(src, dst string) error {
-	se, err := fileEntryCache.Get(src)
+	se, err := entryCache.Get(src)
 	if err != nil {
 		return err
 	}

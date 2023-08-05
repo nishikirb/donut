@@ -7,28 +7,29 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 	"time"
+
+	"github.com/gleamsoda/donut/system"
 )
 
-type FileEntry struct {
+type Entry struct {
 	Path      string      `json:"-"`
 	Empty     bool        `json:"empty"`
 	Mode      fs.FileMode `json:"mode"`
 	ModTime   time.Time   `json:"mod_time"`
 	sum       []byte
 	content   []byte
-	IsFetched bool `json:"-"`
+	isFetched bool `json:"-"`
 }
 
-var _ json.Marshaler = (*FileEntry)(nil)
-var _ json.Unmarshaler = (*FileEntry)(nil)
+var _ json.Marshaler = (*Entry)(nil)
+var _ json.Unmarshaler = (*Entry)(nil)
 
-func NewFileEntry(path string) (*FileEntry, error) {
-	f, err := os.Lstat(path)
+func NewEntry(path string) (*Entry, error) {
+	f, err := system.Lstat(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return &FileEntry{
+			return &Entry{
 				Path:  path,
 				Empty: true,
 			}, nil
@@ -37,7 +38,7 @@ func NewFileEntry(path string) (*FileEntry, error) {
 		}
 	}
 
-	return &FileEntry{
+	return &Entry{
 		Path:    path,
 		Empty:   false,
 		Mode:    f.Mode(),
@@ -45,11 +46,11 @@ func NewFileEntry(path string) (*FileEntry, error) {
 	}, nil
 }
 
-func (e *FileEntry) GetSum() ([]byte, error) {
+func (e *Entry) GetSum() ([]byte, error) {
 	if e == nil || e.Empty {
 		return nil, nil
 	}
-	if e.sum == nil && !e.IsFetched {
+	if e.sum == nil && !e.isFetched {
 		if err := e.loadSum(); err != nil {
 			return nil, err
 		}
@@ -57,11 +58,11 @@ func (e *FileEntry) GetSum() ([]byte, error) {
 	return e.sum, nil
 }
 
-func (e *FileEntry) GetContent() ([]byte, error) {
+func (e *Entry) GetContent() ([]byte, error) {
 	if e == nil || e.Empty {
 		return nil, nil
 	}
-	if e.content == nil && !e.IsFetched {
+	if e.content == nil && !e.isFetched {
 		if err := e.loadContent(); err != nil {
 			return nil, err
 		}
@@ -69,15 +70,15 @@ func (e *FileEntry) GetContent() ([]byte, error) {
 	return e.content, nil
 }
 
-// func (e *FileEntry) isDir() bool {
+// func (e *Entry) isDir() bool {
 // 	return e.Mode.IsDir()
 // }
 
-// func (e *FileEntry) isSymLink() bool {
+// func (e *Entry) isSymLink() bool {
 // 	return e.Mode&os.ModeSymlink != 0
 // }
 
-// func (f *FileEntry) isSame(path string) (bool, error) {
+// func (f *Entry) isSame(path string) (bool, error) {
 // 	if !f.isSymLink() {
 // 		return f.Path == path, nil
 // 	}
@@ -89,8 +90,8 @@ func (e *FileEntry) GetContent() ([]byte, error) {
 // }
 
 // MarshalJSON implements json.Marshaler interface.
-func (e *FileEntry) MarshalJSON() ([]byte, error) {
-	type Alias FileEntry // エイリアスを作成して、再帰的な呼び出しを避ける
+func (e *Entry) MarshalJSON() ([]byte, error) {
+	type Alias Entry // エイリアスを作成して、再帰的な呼び出しを避ける
 
 	sum, err := e.GetSum()
 	if err != nil {
@@ -106,8 +107,8 @@ func (e *FileEntry) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler interface.
-func (e *FileEntry) UnmarshalJSON(value []byte) error {
-	type Alias FileEntry // エイリアスを作成して、再帰的な呼び出しを避ける
+func (e *Entry) UnmarshalJSON(value []byte) error {
+	type Alias Entry // エイリアスを作成して、再帰的な呼び出しを避ける
 
 	aux := &struct {
 		*Alias
@@ -120,12 +121,12 @@ func (e *FileEntry) UnmarshalJSON(value []byte) error {
 	}
 
 	e.sum = aux.Sum
-	e.IsFetched = true
+	e.isFetched = true
 	return nil
 }
 
-func (e *FileEntry) loadSum() error {
-	file, err := os.Open(e.Path)
+func (e *Entry) loadSum() error {
+	file, err := system.Open(e.Path)
 	if err != nil {
 		return err
 	}
@@ -138,8 +139,8 @@ func (e *FileEntry) loadSum() error {
 	return nil
 }
 
-func (e *FileEntry) loadContent() error {
-	r, err := os.ReadFile(e.Path)
+func (e *Entry) loadContent() error {
+	r, err := system.ReadFile(e.Path)
 	if err != nil {
 		return err
 	}

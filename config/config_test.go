@@ -7,12 +7,12 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gleamsoda/donut/tutil"
+	"github.com/gleamsoda/donut/test/helper"
 )
 
 func TestNew(t *testing.T) {
-	home, _, data, _ := tutil.CreateBaseDir(t)
-	tutil.SetDirEnv(t, home)
+	home, _, data, _ := helper.CreateBaseDir(t)
+	helper.SetDirEnv(t, home)
 	defer SetUserHomeDir(home)()
 
 	tests := []struct {
@@ -52,7 +52,7 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "OK/WithNameAndPath",
-			opts: []ConfigOption{WithNameAndPath("basic", "../testdata/config")},
+			opts: []ConfigOption{WithNameAndPath("basic", "../test/testdata/config")},
 			want: &Config{
 				Source:      data,
 				Destination: home,
@@ -62,7 +62,7 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "OK/WithFile",
-			opts: []ConfigOption{WithFile("../testdata/config/basic.toml")},
+			opts: []ConfigOption{WithFile("../test/testdata/config/basic.toml")},
 			want: &Config{
 				Source:      data,
 				Destination: home,
@@ -72,25 +72,25 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name:      "Error/WithFile/Broken",
-			opts:      []ConfigOption{WithFile("../testdata/config/broken.toml")},
+			opts:      []ConfigOption{WithFile("../test/testdata/config/broken.toml")},
 			want:      nil,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Error/WithFile/Less",
-			opts:      []ConfigOption{WithFile("../testdata/config/less.toml")},
+			opts:      []ConfigOption{WithFile("../test/testdata/config/less.toml")},
 			want:      nil,
 			assertion: assert.Error,
 		},
 		{
 			name:      "Error/WithFile/Wrong",
-			opts:      []ConfigOption{WithFile("../testdata/config/wrong.toml")},
+			opts:      []ConfigOption{WithFile("../test/testdata/config/wrong.toml")},
 			want:      nil,
 			assertion: assert.Error,
 		},
 		{
 			name: "OK/WithPath",
-			opts: WithPath("../testdata/config/basic.toml"),
+			opts: WithPath("../test/testdata/config/basic.toml"),
 			want: &Config{
 				Source:      data,
 				Destination: home,

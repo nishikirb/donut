@@ -17,6 +17,30 @@ func MkdirAll(path string, perm fs.FileMode) error {
 	return err
 }
 
+func Stat(name string) (fs.FileInfo, error) {
+	info, err := os.Stat(name)
+	logger.Info().Str("entry", name).Err(err).Msg("Stat")
+	return info, err
+}
+
+func Lstat(name string) (fs.FileInfo, error) {
+	info, err := os.Lstat(name)
+	logger.Info().Str("entry", name).Err(err).Msg("Lstat")
+	return info, err
+}
+
+func Open(name string) (*os.File, error) {
+	file, err := os.Open(name)
+	logger.Info().Str("entry", name).Err(err).Msg("Open")
+	return file, err
+}
+
+func ReadFile(name string) ([]byte, error) {
+	bytes, err := os.ReadFile(name)
+	logger.Info().Str("entry", name).Err(err).Msg("Read")
+	return bytes, err
+}
+
 func Remove(name string) error {
 	err := os.Remove(name)
 	logger.Info().Str("entry", name).Err(err).Msg("Remove")

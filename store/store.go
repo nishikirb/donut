@@ -11,6 +11,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/gleamsoda/donut/config"
+	"github.com/gleamsoda/donut/system"
 )
 
 // // Store is an interface for storing and retrieving data.
@@ -24,17 +25,17 @@ type BoltStore struct {
 	db *bolt.DB
 }
 
-const FileEntryBucket = "file_entries"
+const EntryBucket = "entries"
 
 var (
 	store   = &BoltStore{}
 	once    sync.Once
-	buckets = []string{FileEntryBucket}
+	buckets = []string{EntryBucket}
 )
 
 // Open opens a BoltDB database.
 func Open(file string) (*BoltStore, error) {
-	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
+	if err := system.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 		return nil, err
 	}
 

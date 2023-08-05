@@ -8,30 +8,30 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gleamsoda/donut/tutil"
+	"github.com/gleamsoda/donut/test/helper"
 )
 
-func TestNewFileEntry(t *testing.T) {
+func TestNewEntry(t *testing.T) {
 	tests := []struct {
 		name      string
 		path      string
-		want      *FileEntry
+		want      *Entry
 		assertion assert.ErrorAssertionFunc
 	}{
 		{
 			name: "OK/Exists",
-			path: "./testdata/dotfiles/.example",
-			want: &FileEntry{
-				Path:  "./testdata/dotfiles/.example",
+			path: "./test/testdata/dotfiles/.example",
+			want: &Entry{
+				Path:  "./test/testdata/dotfiles/.example",
 				Empty: false,
 			},
 			assertion: assert.NoError,
 		},
 		{
 			name: "OK/NotExists",
-			path: "./testdata/dotfiles/not_exists",
-			want: &FileEntry{
-				Path:  "./testdata/dotfiles/not_exists",
+			path: "./test/testdata/dotfiles/not_exists",
+			want: &Entry{
+				Path:  "./test/testdata/dotfiles/not_exists",
 				Empty: true,
 			},
 			assertion: assert.NoError,
@@ -39,12 +39,12 @@ func TestNewFileEntry(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewFileEntry(tt.path)
+			got, err := NewEntry(tt.path)
 			tt.assertion(t, err)
 			if err == nil {
 				opts := cmp.Options{
-					cmpopts.IgnoreUnexported(FileEntry{}),
-					cmpopts.IgnoreFields(FileEntry{}, "Mode", "ModTime"),
+					cmpopts.IgnoreUnexported(Entry{}),
+					cmpopts.IgnoreFields(Entry{}, "Mode", "ModTime"),
 				}
 				if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
 					t.Errorf("mismatch (-want +got):\n%s", diff)
@@ -54,17 +54,17 @@ func TestNewFileEntry(t *testing.T) {
 	}
 }
 
-func TestFileEntry_GetSum(t *testing.T) {
-	entry, _ := NewFileEntry("./testdata/dotfiles/.example")
-	emptyEntry, _ := NewFileEntry("./testdata/dotfiles/not_exists")
+func TestEntry_GetSum(t *testing.T) {
+	entry, _ := NewEntry("./test/testdata/dotfiles/.example")
+	emptyEntry, _ := NewEntry("./test/testdata/dotfiles/not_exists")
 	dir := t.TempDir()
 	notReadable := filepath.Join(dir, "not_readable.toml")
-	tutil.WriteFile(t, notReadable, []byte(`[file]`), 0200)
-	notReadableEntry, _ := NewFileEntry(notReadable)
+	helper.WriteFile(t, notReadable, []byte(`[file]`), 0200)
+	notReadableEntry, _ := NewEntry(notReadable)
 
 	tests := []struct {
 		name           string
-		entry          *FileEntry
+		entry          *Entry
 		assertion      assert.ValueAssertionFunc
 		errorAssertion assert.ErrorAssertionFunc
 	}{
@@ -96,17 +96,17 @@ func TestFileEntry_GetSum(t *testing.T) {
 	}
 }
 
-func TestFileEntry_GetContent(t *testing.T) {
-	entry, _ := NewFileEntry("./testdata/dotfiles/.example")
-	emptyEntry, _ := NewFileEntry("./testdata/dotfiles/not_exists")
+func TestEntry_GetContent(t *testing.T) {
+	entry, _ := NewEntry("./test/testdata/dotfiles/.example")
+	emptyEntry, _ := NewEntry("./test/testdata/dotfiles/not_exists")
 	dir := t.TempDir()
 	notReadable := filepath.Join(dir, "not_readable.toml")
-	tutil.WriteFile(t, notReadable, []byte(`[file]`), 0200)
-	notReadableEntry, _ := NewFileEntry(notReadable)
+	helper.WriteFile(t, notReadable, []byte(`[file]`), 0200)
+	notReadableEntry, _ := NewEntry(notReadable)
 
 	tests := []struct {
 		name      string
-		entry     *FileEntry
+		entry     *Entry
 		want      []byte
 		assertion assert.ErrorAssertionFunc
 	}{

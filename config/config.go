@@ -2,10 +2,11 @@ package config
 
 import (
 	"errors"
-	"os"
 	"runtime"
 
 	"github.com/spf13/viper"
+
+	"github.com/gleamsoda/donut/system"
 )
 
 type Config struct {
@@ -73,7 +74,7 @@ func validate(c *Config) error {
 func isDir(path string) error {
 	if path == "" {
 		return errors.New("not defined")
-	} else if f, err := os.Stat(path); err != nil {
+	} else if f, err := system.Stat(path); err != nil {
 		return err
 	} else if !f.IsDir() {
 		return errors.New("not directory")

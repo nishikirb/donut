@@ -7,12 +7,12 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gleamsoda/donut/tutil"
+	"github.com/gleamsoda/donut/test/helper"
 )
 
 func Test_ExpandEnvFunc(t *testing.T) {
 	dir := t.TempDir()
-	tutil.SetDirEnv(t, dir)
+	helper.SetDirEnv(t, dir)
 	f := ExpandEnvFunc()
 
 	type args struct {

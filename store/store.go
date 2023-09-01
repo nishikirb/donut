@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
-	"golang.org/x/exp/slices"
 
 	"github.com/gleamsoda/donut/config"
 	"github.com/gleamsoda/donut/system"

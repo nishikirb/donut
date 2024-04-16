@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/gleamsoda/donut/system"
+	"github.com/nishikirb/donut/system"
 )
 
 type Entry struct {

@@ -7,13 +7,13 @@ Tiny dotfiles management tool written in Go.
 Homebrew
 
 ```
-brew install gleamsoda/tap/donut
+brew install nishikirb/tap/donut
 ```
 
 source
 
 ```
-go install github.com/gleamsoda/donut/cmd/donut@latest
+go install github.com/nishikirb/donut/cmd/donut@latest
 ```
 
 ## Usage

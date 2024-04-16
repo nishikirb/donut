@@ -5,10 +5,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/gleamsoda/donut"
-	"github.com/gleamsoda/donut/config"
-	"github.com/gleamsoda/donut/logger"
-	"github.com/gleamsoda/donut/store"
+	"github.com/nishikirb/donut"
+	"github.com/nishikirb/donut/config"
+	"github.com/nishikirb/donut/logger"
+	"github.com/nishikirb/donut/store"
 )
 
 var file string

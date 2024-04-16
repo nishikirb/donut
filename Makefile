@@ -1,7 +1,7 @@
 APP_NAME=donut
 COVERAGE_OUT=cover.out
 COVERAGE_HTML=cover.html
-PACKAGE_NAME=github.com/gleamsoda/donut
+PACKAGE_NAME=github.com/nishikirb/donut
 
 .PHONY: build
 build:

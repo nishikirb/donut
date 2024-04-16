@@ -8,7 +8,7 @@ import (
 	"github.com/google/renameio/v2"
 	"github.com/spf13/viper"
 
-	"github.com/gleamsoda/donut/logger"
+	"github.com/nishikirb/donut/logger"
 )
 
 func MkdirAll(path string, perm fs.FileMode) error {

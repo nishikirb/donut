@@ -15,9 +15,9 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/gleamsoda/donut/config"
-	"github.com/gleamsoda/donut/store"
-	"github.com/gleamsoda/donut/system"
+	"github.com/nishikirb/donut/config"
+	"github.com/nishikirb/donut/store"
+	"github.com/nishikirb/donut/system"
 )
 
 type App struct {

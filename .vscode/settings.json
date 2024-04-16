@@ -1,5 +1,5 @@
 {
     "gopls": {
-        "formatting.local": "github.com/gleamsoda/donut"
+        "formatting.local": "github.com/nishikirb/donut"
     }
 }

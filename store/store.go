@@ -10,8 +10,8 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 
-	"github.com/gleamsoda/donut/config"
-	"github.com/gleamsoda/donut/system"
+	"github.com/nishikirb/donut/config"
+	"github.com/nishikirb/donut/system"
 )
 
 // // Store is an interface for storing and retrieving data.

@@ -7,7 +7,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gleamsoda/donut/test/helper"
+	"github.com/nishikirb/donut/test/helper"
 )
 
 func Test_ExpandEnvFunc(t *testing.T) {

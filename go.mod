@@ -1,4 +1,4 @@
-module github.com/gleamsoda/donut
+module github.com/nishikirb/donut
 
 go 1.21
 

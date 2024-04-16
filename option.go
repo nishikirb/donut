@@ -3,7 +3,7 @@ package donut
 import (
 	"io"
 
-	"github.com/gleamsoda/donut/config"
+	"github.com/nishikirb/donut/config"
 )
 
 type Option func(*App) error

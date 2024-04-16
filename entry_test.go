@@ -8,7 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gleamsoda/donut/test/helper"
+	"github.com/nishikirb/donut/test/helper"
 )
 
 func TestNewEntry(t *testing.T) {

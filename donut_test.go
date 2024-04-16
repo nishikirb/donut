@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gleamsoda/donut/config"
-	"github.com/gleamsoda/donut/test/helper"
+	"github.com/nishikirb/donut/config"
+	"github.com/nishikirb/donut/test/helper"
 )
 
 func TestNewApp(t *testing.T) {

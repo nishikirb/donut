@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/gleamsoda/donut/system"
+	"github.com/nishikirb/donut/system"
 )
 
 type Config struct {

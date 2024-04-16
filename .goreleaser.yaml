@@ -15,7 +15,7 @@ builds:
     goarch:
       - arm64
     ldflags:
-      - -w -s -X github.com/gleamsoda/donut.version={{.Version}}
+      - -w -s -X github.com/nishikirb/donut.version={{.Version}}
 
 archives:
   - format: tar.gz
@@ -49,7 +49,7 @@ brews:
     # GitHub/GitLab repository to push the formula to
     tap:
       # Repository owner.
-      owner: gleamsoda
+      owner: nishikirb
 
       # Repository name.
       name: homebrew-tap
